@@ -1,0 +1,35 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# next
+.next/
+out/
+next-env.d.ts
+
+# env
+.env
+.env.local
+.env*.local
+
+# python worker
+worker/.venv/
+__pycache__/
+*.py[cod]
+
+# storage volume (originals, cutouts)
+storage/
+
+# os / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+# claude
+.claude/settings.local.json
+
+# typescript incremental build cache
+*.tsbuildinfo
+CLAUDE.md
+docs/

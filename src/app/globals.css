@@ -1,0 +1,493 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------- tokens
+   The entire palette. There is no accent and no brand colour: the interface
+   is a measuring instrument, so colour enters only through the clothes.
+   See docs/DESIGN-SYSTEM.md, which is binding. */
+
+:root {
+  --bg: #ffffff;
+  --fg: #000000;
+  /* Secondary text is black in light mode too: grey body copy reads as
+     washed out on white. --fg3 stays grey, since it is what marks a control
+     as disabled or a value as absent. */
+  --fg2: #000000;
+  --fg3: #8c8c8c;
+  --rule: #ebebeb;
+  /* The one exception to "no colour in the chrome", and it earns it: the
+     only irreversible control in the app. It appears on exactly one button
+     and never as a fill. See docs/DESIGN-SYSTEM.md. */
+  --danger: #c0271b;
+
+  /* One distance from every edge of the viewport. The header, the side menus
+     and the page body all sit on this same inset, so the chrome reads as one
+     frame rather than a bar above a page. */
+  --gutter: 0.75rem;
+  /* Fixed header: main pads by this so the first row of content clears it.
+     One row at every width, so one value. */
+  --header-h: 62px;
+
+  /* What main leaves under the last row of a scrolling page. A screen that
+     fills the viewport instead subtracts it, so the two agree by arithmetic
+     rather than by a literal copied into a class. */
+  --main-pb: 6rem;
+  /* The air such a full-height screen keeps under itself. */
+  --screen-gap: 1.5rem;
+
+  /* The sheet slides the full width of the viewport, so it is slower than
+     the 120-200ms the rest of the motion uses. */
+  --sheet-duration: 300ms;
+  /* A photo strip settling after a swipe. */
+  --strip-duration: 180ms;
+
+  /* Where the item page's side columns park: below the top of the photo, on
+     the line the eye lands on rather than at the top of the frame. */
+  --item-aside-top: 38vh;
+  /* How much of a phone screen the measured photograph may take, leaving the
+     reading above it and the buttons below it on screen at once. */
+  --measure-photo-h: 50dvh;
+}
+
+@media (min-width: 768px) {
+  :root {
+    --gutter: 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    /* The side columns start lower than the bar does. */
+    --header-h: 86px;
+  }
+}
+
+/* There is no dark mode. Garments are judged against white, so the
+   instrument is white. */
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-fg2: var(--fg2);
+  --color-fg3: var(--fg3);
+  --color-rule: var(--rule);
+  --color-danger: var(--danger);
+  --spacing-gutter: var(--gutter);
+
+  /* Three families, each with one job. */
+  --font-sans:
+    var(--font-grotesque), Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-serif-editorial), Georgia, serif;
+  --font-mono: var(--font-mono-data), "SF Mono", Menlo, monospace;
+
+  /* 10 / 11 / 12 / 15 / 19 / 24, then display. */
+  --text-10: 10px;
+  --text-11: 11px;
+  --text-12: 12px;
+  --text-15: 15px;
+  --text-19: 19px;
+  --text-24: 24px;
+  --text-display: 64px;
+  --text-display--line-height: 0.9;
+  --text-display--letter-spacing: -0.035em;
+
+  /* Radius 0 everywhere, shadows never. Removing the scales entirely means a
+     `rounded-lg` or `shadow-sm` is a build error, not a review comment. */
+  --radius-*: initial;
+  --shadow-*: initial;
+  --drop-shadow-*: initial;
+  --inset-shadow-*: initial;
+  --text-shadow-*: initial;
+}
+
+@layer base {
+  * {
+    border-radius: 0;
+    /* Underlines hug the text. The browser default floats them a full
+       descender below, which reads as a rule under a line rather than a link. */
+    text-underline-offset: 2px;
+    text-decoration-thickness: 1px;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Nothing lives to the left or right of the page. A finger that drifts
+       sideways while scrolling must not carry the page with it, and a swipe
+       inside the photo strip must not chain out into the document. */
+    overflow-x: hidden;
+    overscroll-behavior-x: none;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    /* No overflow here: an overflow value on body makes it the scroll
+       container, and position: sticky in the header then pins to body
+       rather than the viewport and never sticks. html above already clips
+       horizontal overflow. */
+    touch-action: pan-y pinch-zoom;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.35;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Anything numeric aligns in a column. */
+  .font-mono,
+  [class*="font-mono"] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* The browser's own clear control is blue and rounded; the X is ours. */
+  input::-webkit-search-cancel-button,
+  input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
+  ::selection {
+    background: var(--fg);
+    color: var(--bg);
+  }
+}
+
+@layer components {
+  /* 12px uppercase, natural tracking. The only label style: nav links,
+     column heads, brand lines. Wide tracking read as a caption; the reference
+     sets its chrome at text size with no letter-spacing at all. */
+  .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    line-height: 1.35;
+  }
+
+  /* The one bold thing on the page. */
+  .wordmark {
+    font-size: 26px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1;
+  }
+
+  /* Measurements, IDs, anything that has to line up. */
+  .data {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  /* The only boxed things in the app: filter chips and the refine/sort bar. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid var(--rule);
+    padding: 0.6rem 1rem;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    line-height: 1;
+    background: transparent;
+    color: var(--fg);
+    cursor: pointer;
+  }
+
+  .chip[aria-pressed="true"],
+  .chip:hover {
+    border-color: var(--fg);
+  }
+
+  /* The photo target. A dashed rule is the one place a dashed border is used:
+     it reads as "nothing here yet" rather than as a card. */
+  .dropzone {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 32rem;
+    margin-inline: auto;
+    aspect-ratio: 4 / 3;
+    /* Drawn rather than bordered: `dashed` leaves long, loose dashes and the
+       reference is a tight, fine dot. 3px on, 3px off, hairline. */
+    border: none;
+    background-image:
+      repeating-linear-gradient(0deg, var(--rule) 0 3px, transparent 3px 6px),
+      repeating-linear-gradient(90deg, var(--rule) 0 3px, transparent 3px 6px),
+      repeating-linear-gradient(0deg, var(--rule) 0 3px, transparent 3px 6px),
+      repeating-linear-gradient(90deg, var(--rule) 0 3px, transparent 3px 6px);
+    background-size:
+      1px 100%,
+      100% 1px,
+      1px 100%,
+      100% 1px;
+    background-position:
+      0 0,
+      0 0,
+      100% 0,
+      0 100%;
+    background-repeat: no-repeat;
+    cursor: pointer;
+    color: var(--fg3);
+  }
+
+  .dropzone:hover {
+    color: var(--fg);
+    opacity: 1;
+    filter: contrast(3);
+  }
+
+  .dropzone-plus {
+    font-size: 48px;
+    line-height: 1;
+  }
+
+  /* The filled button. Black when it can be pressed; a grey outline when
+     it cannot, so "not yet" reads as a state and not as a broken button. */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 2.5rem;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    line-height: 1.35;
+    background: var(--fg);
+    color: var(--bg);
+    border: 1px solid var(--fg);
+    cursor: pointer;
+  }
+
+  .btn-primary:not(:disabled):hover {
+    background: var(--fg2);
+    border-color: var(--fg2);
+  }
+
+  .btn-primary:disabled {
+    background: transparent;
+    color: var(--fg3);
+    border-color: var(--rule);
+    cursor: not-allowed;
+  }
+
+  /* The same button unfilled, for the move that undoes the filled one:
+     Back beside Next. Hovering fills it, so the pair reads as one control. */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.85rem 2.5rem;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0;
+    line-height: 1.35;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--fg);
+    cursor: pointer;
+  }
+
+  .btn-secondary:not(:disabled):hover {
+    background: var(--fg);
+    color: var(--bg);
+  }
+
+  .btn-secondary:disabled {
+    background: transparent;
+    color: var(--fg3);
+    border-color: var(--rule);
+    cursor: not-allowed;
+  }
+
+  /* Filled button plus the text that dismisses it. Capped and centred on a
+     phone so the button is not a full-width bar; from sm it fills its
+     column, as a product page does. */
+  .action-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    max-width: 24rem;
+    margin-inline: auto;
+  }
+
+  @media (min-width: 640px) {
+    .action-row {
+      max-width: none;
+      margin-inline: 0;
+    }
+  }
+
+  /* One text option in a row of them: nav links, filter rows, sheet tabs,
+     the Tops | Bottoms bar, the Front / Back pager. Idle it behaves like
+     `.link-text`; chosen it keeps the underline. */
+  .tab {
+    color: var(--fg2);
+    cursor: pointer;
+  }
+
+  .tab:hover,
+  .tab:focus-visible,
+  .tab[aria-pressed="true"],
+  .tab[aria-current="page"] {
+    color: var(--fg);
+    text-decoration: underline;
+  }
+
+  /* Two choices, hairline above and below, split down the middle: the
+     closet's Filter | Sort and capture's Tops | Bottoms are the same bar. */
+  .split-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .split-bar > :first-child {
+    border-right: 1px solid var(--rule);
+  }
+
+  /* The bar runs edge to edge of the viewport whatever box the page centres
+     its content in, so it continues the compact header's own bar. */
+  .split-bar-bleed {
+    position: relative;
+    left: 50%;
+    width: 100vw;
+    transform: translateX(-50%);
+  }
+
+  /* Colour picker dot: ring, white gap, fill. The one round control, and it
+     is round because it is a colour and not a button. */
+  .colour-dot {
+    display: inline-flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 3px;
+    border: 1px solid;
+    border-radius: 9999px;
+    background: var(--bg);
+    cursor: pointer;
+  }
+
+  .colour-dot > span {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: 9999px;
+    /* White reads as a hole without this. */
+    box-shadow: inset 0 0 0 1px var(--rule);
+  }
+
+  /* Garment colour is the one place colour is allowed to carry meaning. It
+     sits inline in a line of text, so it is sized to the text. */
+  .swatch {
+    width: 0.625rem;
+    height: 0.625rem;
+    border: 1px solid var(--rule);
+    flex: none;
+  }
+
+  /* The single destructive control. Outline only, never a fill, which would
+     make it the loudest thing on a screen whose subject is the clothes. */
+  .chip-danger,
+  .chip-danger:hover,
+  .chip-danger[aria-pressed="true"] {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .chip:disabled {
+    color: var(--fg3);
+    border-color: var(--rule);
+    cursor: not-allowed;
+  }
+
+  /* Anything clickable that is set as text says so on hover: it lifts to
+     full strength and underlines. Boxed controls (chips) use their border. */
+  .link-text {
+    color: var(--fg2);
+    cursor: pointer;
+  }
+
+  .link-text:hover,
+  .link-text:focus-visible {
+    color: var(--fg);
+    text-decoration: underline;
+  }
+
+  /* A text link that starts with an icon. An SVG cannot take a text
+     underline, so the underline is drawn as a bottom border across icon and
+     word together, for hover and for the active page alike. The line box is
+     shrunk to the cap height so the border sits where the text underline on
+     the neighbouring links does, ~2px under the baseline, rather than at
+     the bottom of the descender space. */
+  .nav-icon-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    line-height: 1;
+    padding-bottom: 1px;
+    border-bottom: 1px solid transparent;
+    text-decoration: none;
+  }
+
+  .nav-icon-link:hover,
+  .nav-icon-link:focus-visible,
+  .nav-icon-link[aria-current="page"] {
+    text-decoration: none;
+    border-bottom-color: currentColor;
+  }
+
+  /* The garment diagram. Hovering a dimension lifts its line to full
+     strength and solid, and inverts its figure: black box, white text, no
+     halo. So the number and the line it measures read as one thing. */
+  .schematic-dim {
+    cursor: default;
+  }
+
+  .schematic-dim-box {
+    opacity: 0;
+  }
+
+  /* Selected (data-active) looks the same as hovered, and stays. */
+  .schematic-dim:hover .schematic-dim-box,
+  .schematic-dim[data-active] .schematic-dim-box {
+    opacity: 1;
+  }
+
+  .schematic-dim:hover .schematic-dim-line,
+  .schematic-dim[data-active] .schematic-dim-line {
+    stroke: var(--fg);
+    stroke-dasharray: none;
+  }
+
+  .schematic-dim:hover .schematic-dim-value,
+  .schematic-dim[data-active] .schematic-dim-value {
+    fill: var(--bg);
+    stroke: none;
+  }
+
+  .schematic-dim:hover .schematic-dim-end,
+  .schematic-dim[data-active] .schematic-dim-end {
+    fill: var(--fg);
+    stroke: var(--fg);
+  }
+
+  /* Section rules are hairlines like everything else. A full-strength --fg
+     rule reads as a divider borrowed from another design once the rest of the
+     chrome is this light, so section tops and row separators are one class. */
+  .rule-top {
+    border-top: 1px solid var(--rule);
+  }
+}
+
+/* Opacity and position only, 120-200ms, no bounce, no scale. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,20 @@
+Metadata-Version: 2.4
+Name: ootd-worker
+Version: 0.1.0
+Summary: Image processing worker: polls the Postgres job table, writes cutouts.
+Requires-Python: >=3.11
+Requires-Dist: fastapi>=0.115
+Requires-Dist: uvicorn[standard]>=0.32
+Requires-Dist: psycopg[binary,pool]>=3.2
+Requires-Dist: pillow>=11
+Requires-Dist: numpy>=2.1
+Requires-Dist: scipy>=1.14
+Provides-Extra: local
+Requires-Dist: torch>=2.5; extra == "local"
+Requires-Dist: torchvision>=0.20; extra == "local"
+Requires-Dist: transformers>=4.46; extra == "local"
+Requires-Dist: timm>=1.0; extra == "local"
+Requires-Dist: kornia>=0.7; extra == "local"
+Requires-Dist: einops>=0.8; extra == "local"
+Provides-Extra: replicate
+Requires-Dist: replicate>=1.0; extra == "replicate"

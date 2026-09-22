@@ -1,0 +1,1 @@
+ALTER TABLE "photo" ADD CONSTRAINT "photo_garment_id_garment_id_fk" FOREIGN KEY ("garment_id") REFERENCES "public"."garment"("id") ON DELETE cascade ON UPDATE no action;

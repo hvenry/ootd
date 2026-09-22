@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ootd
+      POSTGRES_PASSWORD: ootd
+      POSTGRES_DB: ootd
+    ports:
+      # A native Postgres already owns 5432 on this machine; ours lives beside it.
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ootd -d ootd"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  worker:
+    build: ./worker
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://ootd:ootd@db:5432/ootd
+      CUTOUT_PROVIDER: ${CUTOUT_PROVIDER:-local}
+      STORAGE_ROOT: /storage
+      HF_HOME: /hf-cache
+    volumes:
+      - ./storage:/storage
+      - hfcache:/hf-cache
+    profiles: ["worker"]
+
+volumes:
+  pgdata:
+  hfcache:

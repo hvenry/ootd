@@ -1,0 +1,1 @@
+ALTER TABLE "photo" DROP COLUMN "cutout_box";

@@ -1,0 +1,1 @@
+ALTER TYPE "public"."measurement_key" ADD VALUE 'outseam' BEFORE 'leg_opening';

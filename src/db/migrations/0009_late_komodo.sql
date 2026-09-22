@@ -1,0 +1,1 @@
+ALTER TABLE "garment" ADD COLUMN "declared_colour" text;
