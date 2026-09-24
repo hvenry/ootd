@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { deleteGarment, updateGarmentDetails } from "@/app/actions";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColourDots } from "@/components/colour-dots";
+import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
 import {
   CATEGORY_LABELS,
   isBottomSilhouette,
@@ -64,8 +65,8 @@ export function GarmentDetails({
   const family = isTopSilhouette(silhouetteFor(category))
     ? isTopSilhouette
     : isBottomSilhouette;
-  const siblings = (Object.keys(CATEGORY_LABELS) as Category[]).filter(
-    (c) => c !== "coat" && family(silhouetteFor(c)),
+  const siblings = (Object.keys(CATEGORY_LABELS) as Category[]).filter((c) =>
+    family(silhouetteFor(c)),
   );
 
   const allowed = new Set(templateFor(draftCategory).map((d) => d.key));
@@ -131,17 +132,14 @@ export function GarmentDetails({
       </div>
 
       <p className="label text-fg2 mt-6 mb-2">Category</p>
-      <div className="flex flex-wrap gap-2">
+      <div className={CATEGORY_GRID}>
         {siblings.map((c) => (
-          <button
+          <CategoryTile
             key={c}
-            type="button"
-            className="chip"
-            aria-pressed={draftCategory === c}
-            onClick={() => setDraftCategory(c)}
-          >
-            {CATEGORY_LABELS[c]}
-          </button>
+            category={c}
+            selected={draftCategory === c}
+            onSelect={() => setDraftCategory(c)}
+          />
         ))}
       </div>
 

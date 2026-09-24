@@ -140,6 +140,7 @@ export function ItemScreen({
       ) : silhouette ? (
         <GarmentSchematic
           silhouette={silhouette}
+          category={garment.category}
           dimensions={shownDimensions}
           values={values}
           unit={unit}

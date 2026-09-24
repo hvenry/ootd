@@ -106,23 +106,23 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     },
     optional: false,
     hints: {
-      top: { x1: 26, y1: 38, x2: 74, y2: 38, lx: 56, ly: 47, anchor: "middle" },
+      top: { x1: 23, y1: 43, x2: 77, y2: 43, lx: 56, ly: 52, anchor: "middle" },
       long_top: {
-        x1: 26,
-        y1: 44,
-        x2: 74,
-        y2: 44,
-        lx: 50,
-        ly: 53,
+        x1: 23,
+        y1: 42,
+        x2: 77,
+        y2: 42,
+        lx: 56,
+        ly: 51,
         anchor: "middle",
       },
       vest: {
-        x1: 26,
-        y1: 44,
-        x2: 74,
-        y2: 44,
-        lx: 50,
-        ly: 53,
+        x1: 23,
+        y1: 47,
+        x2: 77,
+        y2: 47,
+        lx: 62,
+        ly: 56,
         anchor: "middle",
       },
     },
@@ -139,17 +139,17 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     seed: { top: { kind: "horizontal", at: 0.1 } },
     optional: false,
     hints: {
-      top: { x1: 30, y1: 11, x2: 70, y2: 11, lx: 50, ly: 3, anchor: "middle" },
+      top: { x1: 23, y1: 15, x2: 77, y2: 15, lx: 50, ly: 3, anchor: "middle" },
       long_top: {
-        x1: 30,
-        y1: 11,
-        x2: 70,
-        y2: 11,
+        x1: 28,
+        y1: 15,
+        x2: 72,
+        y2: 15,
         lx: 50,
         ly: 3,
         anchor: "middle",
       },
-      vest: { x1: 30, y1: 11, x2: 70, y2: 11, lx: 50, ly: 3, anchor: "middle" },
+      vest: { x1: 29, y1: 15, x2: 71, y2: 15, lx: 50, ly: 3, anchor: "middle" },
     },
     guide:
       "Across the top, from where one shoulder seam meets the sleeve to the same point on the other side.",
@@ -173,14 +173,14 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     },
     optional: false,
     hints: {
-      top: { x1: 70, y1: 11, x2: 92, y2: 21, lx: 96, ly: 20, anchor: "start" },
+      top: { x1: 77, y1: 15, x2: 98, y2: 30, lx: 100, ly: 27, anchor: "start" },
       long_top: {
-        x1: 70,
-        y1: 11,
-        x2: 104,
-        y2: 78,
-        lx: 98,
-        ly: 44,
+        x1: 72,
+        y1: 15,
+        x2: 105,
+        y2: 86,
+        lx: 94,
+        ly: 45,
         anchor: "start",
       },
       // No vest hint: a vest has no sleeve, and the template omits it.
@@ -201,23 +201,23 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     seed: { top: { kind: "vertical", from: 0.02, to: 0.98 } },
     optional: false,
     hints: {
-      top: { x1: 38, y1: 16, x2: 38, y2: 109, lx: 44, ly: 70, anchor: "start" },
+      top: { x1: 37, y1: 10, x2: 37, y2: 92, lx: 43, ly: 66, anchor: "start" },
       long_top: {
-        x1: 38,
-        y1: 16,
-        x2: 38,
-        y2: 109,
-        lx: 44,
-        ly: 80,
+        x1: 42,
+        y1: 10,
+        x2: 42,
+        y2: 88,
+        lx: 48,
+        ly: 68,
         anchor: "start",
       },
       vest: {
         x1: 38,
-        y1: 16,
+        y1: 10,
         x2: 38,
-        y2: 109,
-        lx: 44,
-        ly: 80,
+        y2: 92,
+        lx: 43,
+        ly: 72,
         anchor: "start",
       },
     },
@@ -264,8 +264,8 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     seed: { bottom: { kind: "horizontal", at: 0.02 } },
     optional: false,
     hints: {
-      bottom: { x1: 18, y1: 9, x2: 82, y2: 9, lx: 50, ly: 3, anchor: "middle" },
-      shorts: { x1: 18, y1: 9, x2: 82, y2: 9, lx: 50, ly: 3, anchor: "middle" },
+      bottom: { x1: 27, y1: 6, x2: 73, y2: 6, lx: 50, ly: 0, anchor: "middle" },
+      shorts: { x1: 27, y1: 6, x2: 73, y2: 6, lx: 50, ly: 0, anchor: "middle" },
     },
     guide:
       "Straight across the top of the waistband, edge to edge, with the waistband lying flat.",
@@ -288,8 +288,8 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     },
     optional: false,
     hints: {
-      bottom: { x1: 18, y1: 7, x2: 22, y2: 133, lx: 12, ly: 70, anchor: "end" },
-      shorts: { x1: 18, y1: 7, x2: 15, y2: 78, lx: 9, ly: 45, anchor: "end" },
+      bottom: { x1: 27, y1: 6, x2: 24, y2: 99, lx: 20, ly: 55, anchor: "end" },
+      shorts: { x1: 27, y1: 6, x2: 22, y2: 60, lx: 18, ly: 35, anchor: "end" },
     },
     guide:
       "The full length: down the outside of one leg, from the top of the waistband to the bottom of the leg.",
@@ -311,20 +311,20 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     hints: {
       bottom: {
         x1: 50,
-        y1: 57,
+        y1: 38,
         x2: 54,
-        y2: 131,
-        lx: 58,
-        ly: 100,
+        y2: 99,
+        lx: 60,
+        ly: 80,
         anchor: "start",
       },
       shorts: {
         x1: 50,
-        y1: 51,
-        x2: 56,
-        y2: 78,
-        lx: 60,
-        ly: 68,
+        y1: 38,
+        x2: 53,
+        y2: 60,
+        lx: 58,
+        ly: 52,
         anchor: "start",
       },
     },
@@ -346,19 +346,19 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     hints: {
       bottom: {
         x1: 50,
-        y1: 8,
+        y1: 6,
         x2: 50,
-        y2: 54,
-        lx: 56,
-        ly: 32,
+        y2: 38,
+        lx: 55,
+        ly: 33,
         anchor: "start",
       },
       shorts: {
         x1: 50,
-        y1: 8,
+        y1: 6,
         x2: 50,
-        y2: 48,
-        lx: 56,
+        y2: 38,
+        lx: 55,
         ly: 30,
         anchor: "start",
       },
@@ -377,21 +377,21 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     optional: false,
     hints: {
       bottom: {
-        x1: 22,
-        y1: 132,
+        x1: 24,
+        y1: 99,
         x2: 46,
-        y2: 132,
-        lx: 34,
-        ly: 141,
+        y2: 99,
+        lx: 35,
+        ly: 108,
         anchor: "middle",
       },
       shorts: {
-        x1: 14,
-        y1: 79,
-        x2: 44,
-        y2: 79,
-        lx: 29,
-        ly: 88,
+        x1: 22,
+        y1: 60,
+        x2: 47,
+        y2: 60,
+        lx: 35,
+        ly: 69,
         anchor: "middle",
       },
     },
@@ -421,6 +421,11 @@ export type Silhouette = "top" | "long_top" | "vest" | "bottom" | "shorts";
  * Which shape each category is measured as — and the reason this is a
  * `Record` over every category rather than two arrays.
  *
+ * Sleeve length is part of the name wherever a garment comes in both
+ * (henley and short sleeve henley, shirt and short sleeve shirt), because it
+ * decides the drawing and where the sleeve pin starts. A long-sleeve henley
+ * measured as a short-sleeve top seeds pit to pit cuff to cuff.
+ *
  * A polo, a henley and an oxford take the same four numbers from the same
  * four points as a t-shirt. The categories exist so the closet can be
  * searched and the layer validator can reason about what goes over what;
@@ -435,19 +440,32 @@ export type Silhouette = "top" | "long_top" | "vest" | "bottom" | "shorts";
 const SILHOUETTE_BY_CATEGORY: Record<Category, Silhouette | null> = {
   tshirt: "top",
   polo: "top",
-  henley: "top",
+  short_sleeve_henley: "top",
   short_sleeve_shirt: "top",
   long_sleeve: "long_top",
+  henley: "long_top",
   shirt: "long_top",
-  knit: "long_top",
+  overshirt: "long_top",
+  turtleneck: "long_top",
   sweater: "long_top",
-  jacket: "long_top",
-  coat: "long_top",
+  crewneck: "long_top",
+  hoodie: "long_top",
+  fleece: "long_top",
+  cardigan: "long_top",
+  tank: "vest",
   vest: "vest",
+  shell: "long_top",
+  chore_jacket: "long_top",
+  blazer: "long_top",
+  coat: "long_top",
+  parka: "long_top",
   trousers: "bottom",
+  chinos: "bottom",
   jeans: "bottom",
+  sweatpants: "bottom",
   shorts: "shorts",
-  // Lasts and head shapes are their own problem. Phase 2.
+  sweat_shorts: "shorts",
+  // Sized, never measured: a labelled size is the whole record for these.
   shoe: null,
   hat: null,
 };
@@ -456,7 +474,73 @@ export function silhouetteFor(category: Category): Silhouette | null {
   return SILHOUETTE_BY_CATEGORY[category];
 }
 
-/** Phase 0 measures tops and bottoms. Shoes and hats get their own flows in Phase 2. */
+/**
+ * The first question when adding a garment. Outerwear is measured exactly
+ * like a long-sleeve top; it is its own group because that is how a closet
+ * is sorted in your head, and because a jacket filed among twelve tops is
+ * a jacket nobody finds.
+ */
+export type Group = "top" | "bottom" | "outerwear";
+
+export const GROUP_LABELS: Record<Group, string> = {
+  top: "Tops",
+  bottom: "Bottoms",
+  outerwear: "Outerwear",
+};
+
+const GROUP_BY_CATEGORY: Record<Category, Group | null> = {
+  tshirt: "top",
+  polo: "top",
+  short_sleeve_henley: "top",
+  short_sleeve_shirt: "top",
+  long_sleeve: "top",
+  henley: "top",
+  shirt: "top",
+  overshirt: "outerwear",
+  turtleneck: "top",
+  sweater: "top",
+  crewneck: "top",
+  hoodie: "top",
+  fleece: "outerwear",
+  cardigan: "top",
+  tank: "top",
+  vest: "top",
+  shell: "outerwear",
+  chore_jacket: "outerwear",
+  blazer: "outerwear",
+  coat: "outerwear",
+  parka: "outerwear",
+  trousers: "bottom",
+  chinos: "bottom",
+  jeans: "bottom",
+  sweatpants: "bottom",
+  shorts: "bottom",
+  sweat_shorts: "bottom",
+  shoe: null,
+  hat: null,
+};
+
+export function groupFor(category: Category): Group | null {
+  return GROUP_BY_CATEGORY[category];
+}
+
+/** Tops split by sleeve, which is to say by the shape they are measured as. */
+export const TOP_TYPES: { silhouette: Silhouette; label: string }[] = [
+  { silhouette: "top", label: "Short sleeve" },
+  { silhouette: "long_top", label: "Long sleeve" },
+  { silhouette: "vest", label: "Sleeveless" },
+];
+
+/** Every category in a group, optionally narrowed to one shape, in list order. */
+export function categoriesIn(group: Group, silhouette?: Silhouette): Category[] {
+  return (Object.keys(CATEGORY_LABELS) as Category[]).filter(
+    (c) =>
+      GROUP_BY_CATEGORY[c] === group &&
+      (silhouette === undefined || SILHOUETTE_BY_CATEGORY[c] === silhouette),
+  );
+}
+
+/** Tops and bottoms are measured. Shoes and hats take a labelled size instead. */
 export function templateFor(category: Category): Dimension[] {
   switch (SILHOUETTE_BY_CATEGORY[category]) {
     case "top":
@@ -515,52 +599,65 @@ export const DEFAULT_LAYER_SLOT: Record<Category, LayerSlot> = {
   tshirt: "base",
   polo: "base",
   henley: "base",
+  short_sleeve_henley: "base",
   long_sleeve: "base",
+  tank: "base",
   shirt: "mid",
   short_sleeve_shirt: "mid",
-  knit: "mid",
+  overshirt: "mid",
+  turtleneck: "mid",
   sweater: "mid",
-  jacket: "outer",
-  coat: "outer",
+  crewneck: "mid",
+  hoodie: "mid",
+  fleece: "mid",
+  cardigan: "mid",
   vest: "mid",
+  // The one type that fills the shell slot: the waterproof or windproof
+  // layer that goes over everything.
+  shell: "shell",
+  chore_jacket: "outer",
+  blazer: "outer",
+  coat: "outer",
+  parka: "outer",
   trousers: "bottom",
+  chinos: "bottom",
   jeans: "bottom",
+  sweatpants: "bottom",
   shorts: "bottom",
+  sweat_shorts: "bottom",
   shoe: "footwear",
   hat: "headwear",
 };
 
+/** Also the order categories are offered in: most-owned first within each shape. */
 export const CATEGORY_LABELS: Record<Category, string> = {
   tshirt: "T-shirt",
   polo: "Polo",
-  henley: "Henley",
-  long_sleeve: "Long sleeve",
-  shirt: "Shirt",
+  short_sleeve_henley: "Short sleeve henley",
   short_sleeve_shirt: "Short sleeve shirt",
-  knit: "Knit",
+  long_sleeve: "Long sleeve tee",
+  shirt: "Shirt",
+  henley: "Henley",
   sweater: "Sweater",
-  jacket: "Jacket",
-  coat: "Coat",
+  turtleneck: "Turtleneck",
+  cardigan: "Cardigan",
+  crewneck: "Crewneck",
+  hoodie: "Hoodie",
+  tank: "Tank",
   vest: "Vest",
-  trousers: "Trousers",
+  shell: "Shell",
+  chore_jacket: "Chore jacket",
+  overshirt: "Overshirt",
+  fleece: "Fleece",
+  blazer: "Blazer",
+  coat: "Coat",
+  parka: "Parka",
   jeans: "Jeans",
+  trousers: "Trousers",
+  chinos: "Chinos",
+  sweatpants: "Sweatpants",
   shorts: "Shorts",
+  sweat_shorts: "Sweat shorts",
   shoe: "Shoe",
   hat: "Hat",
-};
-
-/**
- * What each category is understood to include.
- *
- * The names people reach for are finer than the list they are choosing
- * from, and the moment somebody with a flannel cannot find "flannel" they
- * either invent a category or pick wrongly. Saying what a name covers costs
- * one line and settles it; the specific name still belongs in
- * `garment.subcategory`, which is free text.
- */
-export const CATEGORY_COVERS: Partial<Record<Category, string>> = {
-  shirt: "Denim, oxford, dress, button-down, flannel",
-  short_sleeve_shirt: "Camp collar, bowling",
-  long_sleeve: "Long-sleeve tee",
-  knit: "Knitted polo, fine gauge",
 };

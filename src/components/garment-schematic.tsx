@@ -1,5 +1,6 @@
-import { SILHOUETTES } from "@/components/garment-hint";
+import { GarmentFigure, SILHOUETTES } from "@/components/garment-hint";
 import type {
+  Category,
   Dimension,
   MeasurementKey,
   Silhouette,
@@ -34,6 +35,7 @@ const BOX_PAD_Y = 0.9;
 
 export function GarmentSchematic({
   silhouette,
+  category,
   dimensions,
   values,
   activeKey,
@@ -43,6 +45,8 @@ export function GarmentSchematic({
   className,
 }: {
   silhouette: Silhouette;
+  /** Draw this garment's own collar and pockets; the lines are the same. */
+  category?: Category | null;
   dimensions: Dimension[];
   values: Record<string, number | undefined>;
   activeKey?: MeasurementKey | null;
@@ -69,14 +73,7 @@ export function GarmentSchematic({
         )
         .join(", ")}
     >
-      <path
-        d={shape.path}
-        fill="none"
-        stroke="var(--fg3)"
-        strokeWidth={1}
-        vectorEffect="non-scaling-stroke"
-        strokeLinejoin="round"
-      />
+      <GarmentFigure silhouette={silhouette} category={category} />
 
       {dimensions.map((dimension) => {
         const { x1, y1, x2, y2, lx, ly, anchor } = dimension.hint;
@@ -104,9 +101,19 @@ export function GarmentSchematic({
             key={dimension.key}
             className="schematic-dim"
             data-active={active || undefined}
-            onPointerEnter={() => onHover?.(dimension.key as MeasurementKey)}
-            onPointerLeave={() => onHover?.(null)}
-            onClick={() => onSelect?.(dimension.key as MeasurementKey)}
+            /* Handlers only when asked for, so a Server Component can draw
+               the diagram as a static figure. */
+            onPointerEnter={
+              onHover
+                ? () => onHover(dimension.key as MeasurementKey)
+                : undefined
+            }
+            onPointerLeave={onHover ? () => onHover(null) : undefined}
+            onClick={
+              onSelect
+                ? () => onSelect(dimension.key as MeasurementKey)
+                : undefined
+            }
             style={onSelect ? { cursor: "pointer" } : undefined}
           >
             <title>{dimension.label}</title>

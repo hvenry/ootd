@@ -54,7 +54,9 @@ export function CaptureScreen() {
 
   const [stage, setStage] = useState<Stage>(singleView ? "shoot" : "details");
   const [draft, setDraft] = useState<GarmentDraft>({
+    // Opens on tops, short sleeve: the types are showing from the start.
     group: "top",
+    topType: "top",
     colour: "",
     category: null,
     brand: "",
@@ -322,18 +324,22 @@ export function CaptureScreen() {
 
       {stage === "details" ? (
         <>
-          <GarmentForm draft={draft} onChange={setDraft} />
-
-          <div className="mt-10 flex justify-center">
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={() => setStage("shoot")}
-              disabled={!detailsComplete}
-            >
-              Next
-            </button>
-          </div>
+          <GarmentForm
+            draft={draft}
+            onChange={setDraft}
+            footer={
+              <div className="mt-10 flex justify-center">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => setStage("shoot")}
+                  disabled={!detailsComplete}
+                >
+                  Next
+                </button>
+              </div>
+            }
+          />
         </>
       ) : (
         <>
@@ -341,7 +347,11 @@ export function CaptureScreen() {
               else the rig needs is on the printed pages. */}
           <div className="mb-6 flex items-center gap-5">
             {captureSilhouette ? (
-              <GarmentOutline silhouette={captureSilhouette} size={56} />
+              <GarmentOutline
+                silhouette={captureSilhouette}
+                category={draft.category}
+                size={56}
+              />
             ) : null}
             <div>
               <p className="label">{VIEW_LABELS[shooting]}</p>

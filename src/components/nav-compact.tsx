@@ -93,6 +93,7 @@ export function NavCompact() {
             <Plus size={12} weight="bold" aria-hidden />
             Add
           </NavLink>
+          <NavLink href="/measurements">Measurements</NavLink>
           <NavLink href="/sheet">Settings</NavLink>
         </nav>
       </Sheet>

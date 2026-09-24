@@ -1,20 +1,24 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import {
-  CATEGORY_LABELS,
-  isBottomSilhouette,
-  isTopSilhouette,
-  silhouetteFor,
+  GROUP_LABELS,
+  TOP_TYPES,
+  categoriesIn,
   type Category,
+  type Group,
+  type Silhouette,
 } from "@/lib/measure/templates";
 import { declaredHex, declaredName } from "@/lib/colour/declared";
 import { ColourDots } from "@/components/colour-dots";
-
-export type Group = "top" | "bottom";
+import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
 
 export type GarmentDraft = {
-  /** Tops or bottoms; picked first, and it decides which types are offered. */
+  /** Tops, bottoms or outerwear; picked first, and it decides what is offered. */
   group: Group | null;
+  /** Tops only: the sleeve, which is the shape the top is measured as. */
+  topType: Silhouette | null;
   /** null until the person picks one; nothing is preselected */
   category: Category | null;
   brand: string;
@@ -23,21 +27,47 @@ export type GarmentDraft = {
   colour: string;
 };
 
+const GROUPS: Group[] = ["top", "bottom", "outerwear"];
+
 /**
- * Every top takes the same measurements and every bottom takes the same
- * measurements, so the split here is exactly the split that decides what you
- * will be asked. Coat is omitted: it measures identically to a jacket and the
- * distinction belongs in `garment.subcategory`. Shoes and hats have no
- * template yet.
+ * The types on offer once enough has been picked: a top needs its sleeve
+ * first, because two dozen chips at once is a list nobody reads. Shoes and
+ * hats are sized, not measured, and are not offered here yet.
  */
-const CATEGORIES: Record<Group, Category[]> = {
-  top: (Object.keys(CATEGORY_LABELS) as Category[]).filter(
-    (c) => isTopSilhouette(silhouetteFor(c)) && c !== "coat",
-  ),
-  bottom: (Object.keys(CATEGORY_LABELS) as Category[]).filter((c) =>
-    isBottomSilhouette(silhouetteFor(c)),
-  ),
-};
+function offered(draft: GarmentDraft): Category[] {
+  if (!draft.group) return [];
+  if (draft.group === "top") {
+    return draft.topType ? categoriesIn("top", draft.topType) : [];
+  }
+  return categoriesIn(draft.group);
+}
+
+/**
+ * One question, shown only once the one before it is answered. It fades in
+ * and scrolls itself just into view: on a phone the next question would
+ * otherwise appear below the fold, and nothing would say it had.
+ */
+function Step({
+  className = "",
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ref.current?.scrollIntoView({
+      block: "nearest",
+      behavior: still ? "auto" : "smooth",
+    });
+  }, []);
+  return (
+    <div ref={ref} className={`step-in ${className}`}>
+      {children}
+    </div>
+  );
+}
 
 /**
  * What the garment is, asked before the camera opens.
@@ -47,20 +77,26 @@ const CATEGORIES: Record<Group, Category[]> = {
  * what they were meant to be looking at. Brand and name are here for the
  * same reason: they are typed once, at the point where the garment is in
  * your hands and the label is readable.
+ *
+ * Asked one question at a time — group, sleeve, type, colour, then brand
+ * and name — so the screen only ever holds the choice in front of you.
  */
 export function GarmentForm({
   draft,
   onChange,
+  footer,
 }: {
   draft: GarmentDraft;
   onChange: (next: GarmentDraft) => void;
+  /** The screen's Next, shown with the last question. */
+  footer?: React.ReactNode;
 }) {
   return (
     <>
-      {/* Tops | Bottoms is the closet's Filter | Sort bar. On desktop it
+      {/* The group bar is the closet's Filter | Sort bar. On desktop it
           stops bleeding and becomes a closed box inside the content. */}
-      <div className="split-bar split-bar-bleed lg:static lg:w-auto lg:translate-x-0 lg:border-x lg:border-x-rule">
-        {(["top", "bottom"] as const).map((group) => (
+      <div className="split-bar split-bar-bleed lg:static lg:w-auto lg:transform-none lg:border-x lg:border-x-rule">
+        {GROUPS.map((group) => (
           <button
             key={group}
             type="button"
@@ -68,56 +104,90 @@ export function GarmentForm({
             onClick={() => {
               // Re-picking the group already chosen would clear the type.
               if (draft.group === group) return;
-              onChange({ ...draft, group, category: null });
+              // Tops open on the first sleeve, so the types are already
+              // showing; the other sleeves are one tap away.
+              onChange({
+                ...draft,
+                group,
+                topType: group === "top" ? TOP_TYPES[0].silhouette : null,
+                category: null,
+              });
             }}
             className="label tab py-3"
           >
-            {group === "top" ? "Tops" : "Bottoms"}
+            {GROUP_LABELS[group]}
           </button>
         ))}
       </div>
 
-      {draft.group ? (
-        <div className="mt-8 flex flex-wrap justify-center gap-2">
-          {CATEGORIES[draft.group].map((c) => (
+      {draft.group === "top" ? (
+        <Step className="mt-6 flex justify-center gap-6">
+          {TOP_TYPES.map(({ silhouette, label }) => (
             <button
-              key={c}
+              key={silhouette}
               type="button"
-              className="chip"
-              aria-pressed={draft.category === c}
-              onClick={() => onChange({ ...draft, category: c })}
+              aria-pressed={draft.topType === silhouette}
+              onClick={() => {
+                if (draft.topType === silhouette) return;
+                onChange({ ...draft, topType: silhouette, category: null });
+              }}
+              className="label tab"
             >
-              {CATEGORY_LABELS[c]}
+              {label}
             </button>
           ))}
-        </div>
+        </Step>
       ) : null}
 
-      <div className="mx-auto mt-10 max-w-lg">
-        <p className="label text-fg2 mb-3 text-center">Colour</p>
-        <ColourDots
-          className="justify-center"
-          selected={declaredName(draft.colour)}
-          onSelect={(name) =>
-            onChange({ ...draft, colour: declaredHex(name) ?? "" })
-          }
-        />
+      {offered(draft).length > 0 ? (
+        <Step
+          key={`${draft.group}-${draft.topType}`}
+          className={`mx-auto mt-8 max-w-3xl ${CATEGORY_GRID}`}
+        >
+          {offered(draft).map((c) => (
+            <CategoryTile
+              key={c}
+              category={c}
+              selected={draft.category === c}
+              onSelect={() => onChange({ ...draft, category: c })}
+            />
+          ))}
+        </Step>
+      ) : null}
 
-        <div className="mt-10 grid gap-5 sm:grid-cols-2">
-          <Field
-            label="Brand"
-            value={draft.brand}
-            onChange={(brand) => onChange({ ...draft, brand })}
-            placeholder="Brand"
+      {draft.category ? (
+        <Step className="mx-auto mt-10 max-w-lg">
+          <p className="label text-fg2 mb-4 text-center">Colour</p>
+          <ColourDots
+            large
+            className="justify-center"
+            selected={declaredName(draft.colour)}
+            onSelect={(name) =>
+              onChange({ ...draft, colour: declaredHex(name) ?? "" })
+            }
           />
-          <Field
-            label="Name"
-            value={draft.name}
-            onChange={(name) => onChange({ ...draft, name })}
-            placeholder="Name"
-          />
-        </div>
-      </div>
+        </Step>
+      ) : null}
+
+      {draft.category && draft.colour ? (
+        <Step className="mx-auto mt-10 max-w-lg">
+          <div className="grid gap-5 sm:grid-cols-2">
+            <Field
+              label="Brand"
+              value={draft.brand}
+              onChange={(brand) => onChange({ ...draft, brand })}
+              placeholder="Brand"
+            />
+            <Field
+              label="Name"
+              value={draft.name}
+              onChange={(name) => onChange({ ...draft, name })}
+              placeholder="Name"
+            />
+          </div>
+          {footer}
+        </Step>
+      ) : null}
     </>
   );
 }

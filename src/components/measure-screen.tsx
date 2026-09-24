@@ -551,6 +551,7 @@ export function MeasureScreen({
       {silhouette ? (
         <GarmentSchematic
           silhouette={silhouette}
+          category={garment.category}
           dimensions={shown}
           values={{}}
           activeKey={activeKey}
@@ -605,6 +606,7 @@ export function MeasureScreen({
       <>
         <GarmentSchematic
           silhouette={silhouette}
+          category={garment.category}
           dimensions={shown}
           values={{}}
           activeKey={activeKey}

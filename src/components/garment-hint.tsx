@@ -1,164 +1,97 @@
 import {
+  CATEGORY_LABELS,
   isBottomSilhouette,
-  type Dimension,
+  type Category,
   type Silhouette,
 } from "@/lib/measure/templates";
+import { SILHOUETTES, drawingFor } from "@/components/garment-drawings";
 
-/** Height over width of each silhouette's own viewBox. */
-const ASPECT: Record<Silhouette, number> = {
-  top: 1.2,
-  long_top: 1.2,
-  vest: 1.2,
-  bottom: 1.4,
-  shorts: 0.9,
-};
+export { SILHOUETTES };
 
 /**
- * The hint sketch: where this measurement's two points actually go.
+ * The garment drawn flat: edge, then its details lighter, then collars and
+ * lapels on top. An SVG group, so the diagram can put measurement lines
+ * over it and the icon can use it bare.
  *
- * "Front rise" and "back rise" are the same words to anyone who has not
- * measured trousers before, and "body length" says nothing about whether it
- * starts at the shoulder seam or the neck. A silhouette with two dots on it
- * settles the question in less time than a sentence could.
+ * Every stroke is a hairline in screen pixels (`vectorEffect`) at any size.
  */
-
-export const SILHOUETTES: Record<
-  Silhouette,
-  {
-    viewBox: string;
-    /** Same shape with room around it for value labels. */ padded: string;
-    path: string;
-  }
-> = {
-  top: {
-    viewBox: "0 0 100 120",
-    padded: "-20 -12 144 146",
-    // Shoulders, sleeves, straight body to the hem, narrow neck.
-    path:
-      "M30,10 L8,20 L4,44 L20,50 L26,36 L26,110 L74,110 L74,36 L80,50 " +
-      "L96,44 L92,20 L70,10 L62,16 Q50,20 38,16 Z",
-  },
-  long_top: {
-    viewBox: "-8 0 116 120",
-    padded: "-20 -12 144 146",
-    // Same body, sleeves hanging out to a cuff. The top edge of each sleeve
-    // is one straight segment from the shoulder seam, because that edge is
-    // the sleeve measurement and the hint line sits exactly on it.
-    path:
-      "M30,10 L-4,78 L10,84 L26,40 L26,110 L74,110 L74,40 L90,84 L104,78 " +
-      "L70,10 L62,16 Q50,20 38,16 Z",
-  },
-  vest: {
-    viewBox: "0 0 100 120",
-    padded: "-20 -12 144 146",
-    // No sleeves: the armhole curves from the shoulder point into the body.
-    path:
-      "M30,10 L20,14 Q16,30 26,44 L26,110 L74,110 L74,44 Q84,30 80,14 " +
-      "L70,10 L62,16 Q50,20 38,16 Z",
-  },
-  shorts: {
-    viewBox: "0 0 100 90",
-    padded: "-22 -16 144 124",
-    // Waistband, hips, a crotch about halfway down, two short legs.
-    path: "M18,6 L82,6 L86,44 L86,80 L56,80 L50,50 L44,80 L14,80 L14,44 Z",
-  },
-  bottom: {
-    viewBox: "0 0 100 140",
-    padded: "-22 -16 144 174",
-    // Waistband, hips, crotch, two legs.
-    path: "M18,6 L82,6 L84,50 L78,134 L54,134 L50,56 L46,134 L22,134 L16,50 Z",
-  },
-};
-
-/**
- * The bare silhouette, no dimension on it. Capture uses this to say which
- * shape to lay out: a shirt and a pair of trousers are laid out differently
- * and the guide is wrong for one of them if it never changes.
- */
-export function GarmentOutline({
+export function GarmentFigure({
   silhouette,
-  size = 72,
+  category,
 }: {
   silhouette: Silhouette;
-  size?: number;
+  /** Draws that category's collar, pockets and seams; the base without it. */
+  category?: Category | null;
 }) {
-  const shape = SILHOUETTES[silhouette];
+  const { path, under, over, details } = drawingFor(silhouette, category);
   return (
-    <svg
-      viewBox={shape.viewBox}
-      width={size}
-      height={size * ASPECT[silhouette]}
-      className="shrink-0"
-      role="img"
-      aria-label={
-        isBottomSilhouette(silhouette) ? "Bottoms, laid flat" : "Top, laid flat"
-      }
+    <g
+      fill="none"
+      strokeWidth={1}
+      strokeLinejoin="round"
+      strokeLinecap="round"
     >
+      <path d={path} stroke="var(--fg3)" vectorEffect="non-scaling-stroke" />
+      {/* Lighter than the edge so the shape reads first and a measurement
+          line never competes with a seam. */}
       <path
-        d={shape.path}
-        fill="none"
+        d={details}
         stroke="var(--fg3)"
-        strokeWidth={1}
+        strokeOpacity={0.6}
         vectorEffect="non-scaling-stroke"
-        strokeLinejoin="round"
       />
-    </svg>
+      {under ? (
+        <path
+          d={under}
+          fill="var(--bg)"
+          stroke="var(--fg3)"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+      {over ? (
+        <path
+          d={over}
+          fill="var(--bg)"
+          stroke="var(--fg3)"
+          vectorEffect="non-scaling-stroke"
+        />
+      ) : null}
+    </g>
   );
 }
 
-export function GarmentHint({
-  dimension,
+/**
+ * The garment with no dimension on it: the icon on the add form's type
+ * buttons, and at capture the reminder of which shape to lay out.
+ */
+export function GarmentOutline({
   silhouette,
-  size = 96,
+  category,
+  size = 72,
+  fill = false,
 }: {
-  dimension: Dimension;
   silhouette: Silhouette;
+  category?: Category | null;
   size?: number;
+  /** Fill the parent box instead of a fixed width; the shape stays centred. */
+  fill?: boolean;
 }) {
   const shape = SILHOUETTES[silhouette];
-  const { x1, y1, x2, y2 } = dimension.hint;
-
+  const label = category
+    ? CATEGORY_LABELS[category]
+    : isBottomSilhouette(silhouette)
+      ? "Bottoms, laid flat"
+      : "Top, laid flat";
   return (
     <svg
       viewBox={shape.viewBox}
-      width={size}
-      height={size * ASPECT[silhouette]}
-      className="shrink-0"
+      width={fill ? "100%" : size}
+      height={fill ? "100%" : size * shape.aspect}
+      className="shrink-0 overflow-visible"
       role="img"
-      aria-label={dimension.guide}
+      aria-label={label}
     >
-      <path
-        d={shape.path}
-        fill="none"
-        stroke="var(--fg3)"
-        strokeWidth={1}
-        vectorEffect="non-scaling-stroke"
-        strokeLinejoin="round"
-      />
-      <line
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke="var(--fg)"
-        strokeWidth={1}
-        vectorEffect="non-scaling-stroke"
-      />
-      {[
-        [x1, y1],
-        [x2, y2],
-      ].map(([x, y]) => (
-        <circle
-          key={`${x}-${y}`}
-          cx={x}
-          cy={y}
-          r={2.5}
-          fill="var(--bg)"
-          stroke="var(--fg)"
-          strokeWidth={1}
-          vectorEffect="non-scaling-stroke"
-        />
-      ))}
+      <GarmentFigure silhouette={silhouette} category={category} />
     </svg>
   );
 }
