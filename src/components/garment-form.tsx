@@ -234,6 +234,7 @@ export function GarmentForm({
               value={draft.brand}
               onChange={(brand) => onChange({ ...draft, brand })}
               placeholder="Brand"
+              focusOnMount
             />
             <Field
               label="Name"
@@ -254,16 +255,30 @@ function Field({
   value,
   onChange,
   placeholder,
+  focusOnMount = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  /**
+   * Take the cursor when the field first appears: picking a colour is the
+   * last tap, and what follows is typing. Done on mount, inside the tap
+   * that revealed it, so a phone still raises its keyboard.
+   */
+  focusOnMount?: boolean;
 }) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    // The page is already being taken to the bottom; let that do the
+    // scrolling rather than the focus jumping it first.
+    if (focusOnMount) ref.current?.focus({ preventScroll: true });
+  }, [focusOnMount]);
   return (
     <label className="block">
       <span className="label text-fg2">{label}</span>
       <input
+        ref={ref}
         type="text"
         value={value}
         placeholder={placeholder}

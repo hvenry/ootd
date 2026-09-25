@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { X } from "@phosphor-icons/react";
 
 import { Sheet, SheetList, SheetRow } from "@/components/sheet";
 import { declaredHex } from "@/lib/colour/declared";
@@ -45,6 +46,7 @@ const toggle = (set: Set<string>, value: string) => {
 
 export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
   const params = useSearchParams();
+  const router = useRouter();
   // Filters can arrive in the URL: an item page links its brand, category
   // and colour back here so "what else like this?" is one tap.
   const seed = (key: string) => new Set(params.getAll(key).filter(Boolean));
@@ -126,6 +128,46 @@ export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
   }, [items, categories, brands, colours, sort, query]);
 
   const activeCount = categories.size + brands.size + colours.size;
+
+  // Search lives in the URL, beside the header's search box; filters are
+  // this screen's own state. Clearing one leaves the other's params alone.
+  function clearQuery() {
+    const next = new URLSearchParams(params.toString());
+    next.delete("q");
+    const qs = next.toString();
+    router.replace(`/${qs ? `?${qs}` : ""}`);
+  }
+
+  function clearAll() {
+    setCategories(new Set());
+    setBrands(new Set());
+    setColours(new Set());
+    // Filters that arrived from an item page's links are in the URL too;
+    // drop them with the search so a refresh does not bring them back.
+    if (params.toString()) router.replace("/");
+  }
+
+  const active: ActiveFilter[] = [
+    ...(query.trim()
+      ? [{ key: "q", label: `“${query.trim()}”`, onRemove: clearQuery }]
+      : []),
+    ...[...categories].map((c) => ({
+      key: `category-${c}`,
+      label: CATEGORY_LABELS[c as Category] ?? c,
+      onRemove: () => setCategories((s) => toggle(s, c)),
+    })),
+    ...[...brands].map((b) => ({
+      key: `brand-${b}`,
+      label: b,
+      onRemove: () => setBrands((s) => toggle(s, b)),
+    })),
+    ...[...colours].map((c) => ({
+      key: `colour-${c}`,
+      label: c,
+      swatch: declaredHex(c),
+      onRemove: () => setColours((s) => toggle(s, c)),
+    })),
+  ];
 
   const categoryList = (
     <FilterGroup heading="Categories">
@@ -231,7 +273,11 @@ export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
         </aside>
 
         <div className="min-w-0 flex-1">
-          <Grid items={visible} />
+          <ActiveFilters filters={active} onClearAll={clearAll} />
+          <Grid
+            items={visible}
+            onClear={active.length > 0 ? clearAll : undefined}
+          />
         </div>
 
         <aside className="hidden w-28 shrink-0 lg:block">{sortList}</aside>
@@ -286,10 +332,78 @@ export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
   );
 }
 
-function Grid({ items }: { items: ClosetItem[] }) {
+type ActiveFilter = {
+  key: string;
+  label: string;
+  swatch?: string | null;
+  onRemove: () => void;
+};
+
+/**
+ * What is narrowing the grid, over it: one chip per filter, each with its
+ * own way out, so undoing one does not mean finding it again in a column or
+ * a sheet. Clear all appears once there is more than one thing to clear.
+ */
+function ActiveFilters({
+  filters,
+  onClearAll,
+}: {
+  filters: ActiveFilter[];
+  onClearAll: () => void;
+}) {
+  if (filters.length === 0) return null;
+  return (
+    <div className="mb-6 flex flex-wrap items-center gap-2">
+      {filters.map((f) => (
+        <button
+          key={f.key}
+          type="button"
+          className="chip gap-2 py-2 pr-2.5 pl-3"
+          aria-label={`Remove filter: ${f.label}`}
+          onClick={f.onRemove}
+        >
+          {f.swatch ? (
+            <span aria-hidden className="swatch" style={{ background: f.swatch }} />
+          ) : null}
+          {f.label}
+          <X size={12} weight="bold" aria-hidden />
+        </button>
+      ))}
+      {filters.length > 1 ? (
+        <button
+          type="button"
+          className="label link-text ml-2 cursor-pointer"
+          onClick={onClearAll}
+        >
+          Clear all
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function Grid({
+  items,
+  onClear,
+}: {
+  items: ClosetItem[];
+  /** Offered when filters or a search are what emptied the grid. */
+  onClear?: () => void;
+}) {
   if (items.length === 0) {
     return (
-      <p className="text-fg2 py-24 text-center text-12">Nothing matches.</p>
+      <div className="py-24 text-center">
+        <p className="text-fg2 text-12">Nothing matches.</p>
+        {onClear ? (
+          <button
+            type="button"
+            className="chip mt-6"
+            onClick={onClear}
+          >
+            Clear filters
+          </button>
+        ) : null}
+      </div>
     );
   }
   return (
