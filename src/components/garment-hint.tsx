@@ -32,14 +32,6 @@ export function GarmentFigure({
       strokeLinecap="round"
     >
       <path d={path} stroke="var(--fg3)" vectorEffect="non-scaling-stroke" />
-      {/* Lighter than the edge so the shape reads first and a measurement
-          line never competes with a seam. */}
-      <path
-        d={details}
-        stroke="var(--fg3)"
-        strokeOpacity={0.6}
-        vectorEffect="non-scaling-stroke"
-      />
       {under ? (
         <path
           d={under}
@@ -48,6 +40,14 @@ export function GarmentFigure({
           vectorEffect="non-scaling-stroke"
         />
       ) : null}
+      {/* Lighter than the edge so the shape reads first and a measurement
+          line never competes with a seam. */}
+      <path
+        d={details}
+        stroke="var(--fg3)"
+        strokeOpacity={0.6}
+        vectorEffect="non-scaling-stroke"
+      />
       {over ? (
         <path
           d={over}

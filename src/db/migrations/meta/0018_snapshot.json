@@ -1,0 +1,707 @@
+{
+  "id": "e5fdfac6-d22f-43d7-8ebb-4814ed2d1fb1",
+  "prevId": "447d586e-27c1-4305-b355-ca92c4ee818a",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.garment": {
+      "name": "garment",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "category",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subcategory": {
+          "name": "subcategory",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "brand": {
+          "name": "brand",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "declared_colour": {
+          "name": "declared_colour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "short_id": {
+          "name": "short_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_id": {
+          "name": "photo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "cutout_path": {
+          "name": "cutout_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "fabric": {
+          "name": "fabric",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stretch": {
+          "name": "stretch",
+          "type": "stretch",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "clo": {
+          "name": "clo",
+          "type": "numeric(3, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "windproof": {
+          "name": "windproof",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "waterproof": {
+          "name": "waterproof",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "layer_slot": {
+          "name": "layer_slot",
+          "type": "layer_slot",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "layer_index": {
+          "name": "layer_index",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "completed_at": {
+          "name": "completed_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "garment_owner_created": {
+          "name": "garment_owner_created",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "garment_owner_short_id": {
+          "name": "garment_owner_short_id",
+          "nullsNotDistinct": false,
+          "columns": [
+            "owner_id",
+            "short_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.job": {
+      "name": "job",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "job_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "payload": {
+          "name": "payload",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "job_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "result": {
+          "name": "result",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "content_hash": {
+          "name": "content_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "job_status_created": {
+          "name": "job_status_created",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "job_kind_content_hash": {
+          "name": "job_kind_content_hash",
+          "nullsNotDistinct": false,
+          "columns": [
+            "kind",
+            "content_hash"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.measurement": {
+      "name": "measurement",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "garment_id": {
+          "name": "garment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "photo_id": {
+          "name": "photo_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "measurement_key",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "value_mm": {
+          "name": "value_mm",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "is_doubled": {
+          "name": "is_doubled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "convention": {
+          "name": "convention",
+          "type": "convention",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "measurement_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'measured'"
+        },
+        "p1_x": {
+          "name": "p1_x",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "p1_y": {
+          "name": "p1_y",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "p2_x": {
+          "name": "p2_x",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "p2_y": {
+          "name": "p2_y",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "measured_at": {
+          "name": "measured_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "measurement_owner_garment": {
+          "name": "measurement_owner_garment",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "garment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "measurement_garment_id_garment_id_fk": {
+          "name": "measurement_garment_id_garment_id_fk",
+          "tableFrom": "measurement",
+          "tableTo": "garment",
+          "columnsFrom": [
+            "garment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "measurement_photo_id_photo_id_fk": {
+          "name": "measurement_photo_id_photo_id_fk",
+          "tableFrom": "measurement",
+          "tableTo": "photo",
+          "columnsFrom": [
+            "photo_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "measurement_garment_key": {
+          "name": "measurement_garment_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "garment_id",
+            "key"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.photo": {
+      "name": "photo",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "owner_id": {
+          "name": "owner_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "garment_id": {
+          "name": "garment_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "view": {
+          "name": "view",
+          "type": "photo_view",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'front'"
+        },
+        "original_path": {
+          "name": "original_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "homography": {
+          "name": "homography",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cutout_path": {
+          "name": "cutout_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sheet_version": {
+          "name": "sheet_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "grey_patch_rgb": {
+          "name": "grey_patch_rgb",
+          "type": "integer[]",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "taken_at": {
+          "name": "taken_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "photo_owner_garment": {
+          "name": "photo_owner_garment",
+          "columns": [
+            {
+              "expression": "owner_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "garment_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "photo_garment_id_garment_id_fk": {
+          "name": "photo_garment_id_garment_id_fk",
+          "tableFrom": "photo",
+          "tableTo": "garment",
+          "columnsFrom": [
+            "garment_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "photo_garment_view": {
+          "name": "photo_garment_view",
+          "nullsNotDistinct": false,
+          "columns": [
+            "garment_id",
+            "view"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.category": {
+      "name": "category",
+      "schema": "public",
+      "values": [
+        "tshirt",
+        "polo",
+        "henley",
+        "short_sleeve_henley",
+        "long_sleeve",
+        "shirt",
+        "short_sleeve_shirt",
+        "overshirt",
+        "turtleneck",
+        "sweater",
+        "crewneck",
+        "hoodie",
+        "fleece",
+        "cardigan",
+        "tank",
+        "shell",
+        "chore_jacket",
+        "denim_jacket",
+        "leather_jacket",
+        "blazer",
+        "coat",
+        "parka",
+        "puffer_vest",
+        "vest",
+        "trousers",
+        "jeans",
+        "sweatpants",
+        "shorts",
+        "sweat_shorts",
+        "shoe",
+        "hat"
+      ]
+    },
+    "public.convention": {
+      "name": "convention",
+      "schema": "public",
+      "values": [
+        "edge_to_edge",
+        "seam_to_seam",
+        "one_inch_below_pit",
+        "hps_to_hem",
+        "back_waistband"
+      ]
+    },
+    "public.job_kind": {
+      "name": "job_kind",
+      "schema": "public",
+      "values": [
+        "cutout",
+        "colour_extract",
+        "render"
+      ]
+    },
+    "public.job_status": {
+      "name": "job_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "running",
+        "done",
+        "failed"
+      ]
+    },
+    "public.layer_slot": {
+      "name": "layer_slot",
+      "schema": "public",
+      "values": [
+        "base",
+        "mid",
+        "outer",
+        "shell",
+        "bottom",
+        "footwear",
+        "headwear"
+      ]
+    },
+    "public.measurement_key": {
+      "name": "measurement_key",
+      "schema": "public",
+      "values": [
+        "chest",
+        "shoulder",
+        "sleeve",
+        "body_length",
+        "waist",
+        "front_rise",
+        "back_rise",
+        "thigh",
+        "knee",
+        "inseam",
+        "outseam",
+        "leg_opening",
+        "hem",
+        "bicep",
+        "cuff",
+        "collar"
+      ]
+    },
+    "public.measurement_source": {
+      "name": "measurement_source",
+      "schema": "public",
+      "values": [
+        "measured",
+        "brand_spec",
+        "estimated"
+      ]
+    },
+    "public.photo_view": {
+      "name": "photo_view",
+      "schema": "public",
+      "values": [
+        "front",
+        "back",
+        "detail"
+      ]
+    },
+    "public.stretch": {
+      "name": "stretch",
+      "schema": "public",
+      "values": [
+        "none",
+        "low",
+        "high"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

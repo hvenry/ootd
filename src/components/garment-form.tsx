@@ -44,29 +44,43 @@ function offered(draft: GarmentDraft): Category[] {
 
 /**
  * One question, shown only once the one before it is answered. It fades in
- * and scrolls itself just into view: on a phone the next question would
- * otherwise appear below the fold, and nothing would say it had.
+ * and takes the page to the bottom, where it is: on a phone the next
+ * question would otherwise appear below the fold, and nothing would say it
+ * had. Scrolling only "into view" left fields and Next half off screen.
+ *
+ * `answered` is false while the form first mounts, so opening the form on
+ * its preselected tops does not scroll anywhere.
  */
 function Step({
+  answered,
+  quiet,
   className = "",
   children,
 }: {
+  answered: React.RefObject<boolean>;
+  /** Set by the group bar: what it reveals appears in place, unscrolled. */
+  quiet: React.RefObject<boolean>;
   className?: string;
   children: React.ReactNode;
 }) {
-  const ref = useRef<HTMLDivElement | null>(null);
+  // Decided on the first run and kept: development Strict Mode runs this
+  // effect twice, and by the second the form has already cleared `quiet`.
+  const decided = useRef<boolean | null>(null);
   useEffect(() => {
+    decided.current ??= answered.current && !quiet.current;
+    if (!decided.current) return;
     const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    ref.current?.scrollIntoView({
-      block: "nearest",
-      behavior: still ? "auto" : "smooth",
-    });
-  }, []);
-  return (
-    <div ref={ref} className={`step-in ${className}`}>
-      {children}
-    </div>
-  );
+    // After layout, so the new question's height is counted.
+    const frame = requestAnimationFrame(() =>
+      window.scrollTo({
+        top: document.documentElement.scrollHeight,
+        behavior: still ? "auto" : "smooth",
+      }),
+    );
+    return () => cancelAnimationFrame(frame);
+    // The refs never change, so this runs once, when the step appears.
+  }, [answered, quiet]);
+  return <div className={`step-in ${className}`}>{children}</div>;
 }
 
 /**
@@ -91,6 +105,21 @@ export function GarmentForm({
   /** The screen's Next, shown with the last question. */
   footer?: React.ReactNode;
 }) {
+  // Children's effects run before this one, so every step rendered on the
+  // first mount sees false and stays put.
+  const answered = useRef(false);
+  useEffect(() => {
+    answered.current = true;
+  }, []);
+
+  // The group bar sits at the top; what it reveals should appear in place
+  // under it, not pull the page down past it. Its click raises this, the
+  // steps it mounts read it, and it drops once they have.
+  const quiet = useRef(false);
+  useEffect(() => {
+    quiet.current = false;
+  }, [draft.group]);
+
   return (
     <>
       {/* The group bar is the closet's Filter | Sort bar. On desktop it
@@ -104,6 +133,7 @@ export function GarmentForm({
             onClick={() => {
               // Re-picking the group already chosen would clear the type.
               if (draft.group === group) return;
+              quiet.current = true;
               // Tops open on the first sleeve, so the types are already
               // showing; the other sleeves are one tap away.
               onChange({
@@ -111,6 +141,9 @@ export function GarmentForm({
                 group,
                 topType: group === "top" ? TOP_TYPES[0].silhouette : null,
                 category: null,
+                colour: "",
+                brand: "",
+                name: "",
               });
             }}
             className="label tab py-3"
@@ -121,7 +154,11 @@ export function GarmentForm({
       </div>
 
       {draft.group === "top" ? (
-        <Step className="mt-6 flex justify-center gap-6">
+        <Step
+          answered={answered}
+          quiet={quiet}
+          className="mt-6 flex justify-center gap-6"
+        >
           {TOP_TYPES.map(({ silhouette, label }) => (
             <button
               key={silhouette}
@@ -129,7 +166,14 @@ export function GarmentForm({
               aria-pressed={draft.topType === silhouette}
               onClick={() => {
                 if (draft.topType === silhouette) return;
-                onChange({ ...draft, topType: silhouette, category: null });
+                onChange({
+                  ...draft,
+                  topType: silhouette,
+                  category: null,
+                  colour: "",
+                  brand: "",
+                  name: "",
+                });
               }}
               className="label tab"
             >
@@ -141,6 +185,8 @@ export function GarmentForm({
 
       {offered(draft).length > 0 ? (
         <Step
+          answered={answered}
+          quiet={quiet}
           key={`${draft.group}-${draft.topType}`}
           className={`mx-auto mt-8 max-w-3xl ${CATEGORY_GRID}`}
         >
@@ -149,14 +195,25 @@ export function GarmentForm({
               key={c}
               category={c}
               selected={draft.category === c}
-              onSelect={() => onChange({ ...draft, category: c })}
+              // A new type is a new garment: colour, brand and name start
+              // over rather than carrying across from the last one.
+              onSelect={() => {
+                if (draft.category === c) return;
+                onChange({
+                  ...draft,
+                  category: c,
+                  colour: "",
+                  brand: "",
+                  name: "",
+                });
+              }}
             />
           ))}
         </Step>
       ) : null}
 
       {draft.category ? (
-        <Step className="mx-auto mt-10 max-w-lg">
+        <Step answered={answered} quiet={quiet} className="mx-auto mt-10 max-w-lg">
           <p className="label text-fg2 mb-4 text-center">Colour</p>
           <ColourDots
             large
@@ -170,7 +227,7 @@ export function GarmentForm({
       ) : null}
 
       {draft.category && draft.colour ? (
-        <Step className="mx-auto mt-10 max-w-lg">
+        <Step answered={answered} quiet={quiet} className="mx-auto mt-10 max-w-lg">
           <div className="grid gap-5 sm:grid-cols-2">
             <Field
               label="Brand"
