@@ -1,9 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import {
+  isActive,
+  ProgressBar,
+  useActivity,
+  useJobProgress,
+} from "@/components/activity";
 import { GarmentSchematic } from "@/components/garment-schematic";
 import { formatLength, unitSuffix } from "@/lib/units";
 import { useDisplayUnit } from "@/lib/units/preference";
@@ -42,12 +55,43 @@ const LOUPE_ZOOM = 2;
    photograph rather than the loupe's square. */
 const LOCATOR_WIDTH = 66;
 const LOCATOR_HEIGHT = 87;
+/* Air left around the garment once the view is cropped to it, as a share of
+   its longer side: room to grab a pin sitting on the very edge. */
+const CROP_PAD = 0.06;
+
+/** The part of the photograph on screen, in the photograph's own pixels. */
+type View = { x: number; y: number; w: number; h: number };
+
+/** The garment's box as the worker recorded it with the cutout. */
+export type CutoutBounds = View & { imageW: number; imageH: number };
+
+/** The garment's box, padded, and kept inside the photograph. */
+function cropTo(
+  x0: number,
+  y0: number,
+  x1: number,
+  y1: number,
+  imageW: number,
+  imageH: number,
+): View {
+  const pad = CROP_PAD * Math.max(x1 - x0, y1 - y0);
+  const x = Math.max(0, x0 - pad);
+  const y = Math.max(0, y0 - pad);
+  return {
+    x,
+    y,
+    w: Math.min(imageW, x1 + pad) - x,
+    h: Math.min(imageH, y1 + pad) - y,
+  };
+}
 
 export type PhotoInfo = {
   id: string;
   view: PhotoView;
   originalPath: string;
   cutoutPath: string | null;
+  /** Null until the worker has recorded it, and after a re-cut. */
+  cutoutBounds: CutoutBounds | null;
   homography: Matrix3;
   pxPerMm: number;
 };
@@ -112,8 +156,8 @@ export function MeasureScreen({
 }: {
   garment: GarmentSummary;
   /**
-   * Where Done and Exit go. Updating from the item page returns there; a
-   * garment just added goes to the closet, since that is where it now is.
+   * Where Done and Exit go: the item page, the closet, or the next garment
+   * still to measure when working through the queue.
    */
   doneHref: string;
   /**
@@ -121,7 +165,7 @@ export function MeasureScreen({
    *
    * Both faces are photographed and stored (the back is half of what you
    * own and a cutout of it is worth having) but measuring is a front-only
-   * job. Every dimension in the Phase 0 templates reads the same off either
+   * job. Every dimension in the current templates reads the same off either
    * face, so offering the back as a second measuring surface only invites
    * the same garment to be measured twice and disagree with itself.
    */
@@ -131,15 +175,44 @@ export function MeasureScreen({
   existing: ExistingMeasurement[];
 }) {
   const router = useRouter();
+  const { toast } = useActivity();
   const imageRef = useRef<HTMLImageElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
-  const loupeRef = useRef<HTMLCanvasElement | null>(null);
-  const locatorRef = useRef<HTMLCanvasElement | null>(null);
+  // A set each, not a ref: the reading is rendered once for the phone layout
+  // and once for the desktop panel, so there are two of each canvas mounted
+  // and whichever is showing has to be drawn.
+  const loupes = useRef(new Set<HTMLCanvasElement>());
+  const locators = useRef(new Set<HTMLCanvasElement>());
+  const loupeRef = useCallback((el: HTMLCanvasElement | null) => {
+    if (!el) return;
+    loupes.current.add(el);
+    return () => {
+      loupes.current.delete(el);
+    };
+  }, []);
+  const locatorRef = useCallback((el: HTMLCanvasElement | null) => {
+    if (!el) return;
+    locators.current.add(el);
+    return () => {
+      locators.current.delete(el);
+    };
+  }, []);
 
   const [photo, setPhoto] = useState(initialPhoto);
   const [unit] = useDisplayUnit();
   const [mask, setMask] = useState<Mask | null>(null);
   const [displayScale, setDisplayScale] = useState(1);
+  // Known before the image loads when the cutout came with its bounds, so
+  // the first paint is already the cropped view.
+  const [natural, setNatural] = useState<{ w: number; h: number } | null>(
+    () =>
+      initialPhoto.cutoutPath && initialPhoto.cutoutBounds
+        ? {
+            w: initialPhoto.cutoutBounds.imageW,
+            h: initialPhoto.cutoutBounds.imageH,
+          }
+        : null,
+  );
   const [selectedKey, setSelectedKey] = useState<MeasurementKey | null>(
     dimensions[0]?.key ?? null,
   );
@@ -198,7 +271,11 @@ export function MeasureScreen({
   const readImage = useCallback(
     (image: HTMLImageElement) => {
       if (!image.naturalWidth) return;
-      setDisplayScale(image.clientWidth / image.naturalWidth);
+      setNatural((current) =>
+        current?.w === image.naturalWidth && current.h === image.naturalHeight
+          ? current
+          : { w: image.naturalWidth, h: image.naturalHeight },
+      );
       if (photo.cutoutPath) {
         setMask((current) => current ?? buildMask(image));
       }
@@ -222,16 +299,59 @@ export function MeasureScreen({
     [readImage],
   );
 
-  useEffect(() => {
-    function onResize() {
-      const image = imageRef.current;
-      if (image?.naturalWidth) {
-        setDisplayScale(image.clientWidth / image.naturalWidth);
-      }
+  /**
+   * The view is cropped to the garment.
+   *
+   * The cutout keeps the whole photograph's frame, because the pins are
+   * stored in that frame; but most of that frame is floor. Shown whole, a
+   * pair of trousers came out a third of a phone's width and the pins were
+   * placed on a sliver. Cropping only changes what is on screen: every point
+   * is still converted to and from the photograph's own pixels.
+   */
+  //
+  // The worker's recorded box is used when there is one, because it arrives
+  // with the page; reading the mask means downloading the PNG first, and the
+  // view used to open on the whole frame and then jump. The mask is the
+  // fallback for a cutout that has none.
+  const bounds = photo.cutoutPath ? photo.cutoutBounds : null;
+  const view = useMemo<View | null>(() => {
+    if (bounds) {
+      return cropTo(
+        bounds.x,
+        bounds.y,
+        bounds.x + bounds.w,
+        bounds.y + bounds.h,
+        bounds.imageW,
+        bounds.imageH,
+      );
     }
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
+    if (!natural) return null;
+    const box = mask?.bounds;
+    if (!mask || !box) return { x: 0, y: 0, w: natural.w, h: natural.h };
+    return cropTo(
+      box.minX / mask.scale,
+      box.minY / mask.scale,
+      (box.maxX + 1) / mask.scale,
+      (box.maxY + 1) / mask.scale,
+      natural.w,
+      natural.h,
+    );
+  }, [bounds, natural, mask]);
+
+  // The frame's width decides the scale, and the frame follows its column,
+  // so a rotated phone or a resized window re-measures on its own. Before
+  // paint, or the first frame draws the photograph at the wrong scale.
+  useLayoutEffect(() => {
+    const frame = frameRef.current;
+    if (!frame || !view) return;
+    const measure = () => {
+      if (frame.clientWidth) setDisplayScale(frame.clientWidth / view.w);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [view]);
 
   // Seed handles once the geometry is known: from what was stored last time,
   // from the mask where there is one, from the frame otherwise.
@@ -319,8 +439,8 @@ export function MeasureScreen({
   function toImageSpace(event: React.PointerEvent | PointerEvent): Point {
     const rect = frameRef.current!.getBoundingClientRect();
     return {
-      x: (event.clientX - rect.left) / displayScale,
-      y: (event.clientY - rect.top) / displayScale,
+      x: (event.clientX - rect.left) / displayScale + (view?.x ?? 0),
+      y: (event.clientY - rect.top) / displayScale + (view?.y ?? 0),
     };
   }
 
@@ -378,9 +498,9 @@ export function MeasureScreen({
     const image = imageRef.current;
     if (!image || !loupeAt) return;
     const fg = token("--fg", "#000");
+    const bg = token("--bg", "#fff");
 
-    const loupe = loupeRef.current;
-    if (loupe) {
+    for (const loupe of loupes.current) {
       const ctx = loupe.getContext("2d")!;
       const span = LOUPE_SIZE / LOUPE_ZOOM;
       ctx.clearRect(0, 0, LOUPE_SIZE, LOUPE_SIZE);
@@ -396,39 +516,50 @@ export function MeasureScreen({
         LOUPE_SIZE,
         LOUPE_SIZE,
       );
-      ctx.strokeStyle = fg;
+      // Drawn twice, a wide ground line under a hairline, so the cross
+      // reads on black cloth as well as white: on dark denim a lone --fg
+      // line vanished into the weave.
       ctx.beginPath();
       ctx.moveTo(LOUPE_SIZE / 2, 0);
       ctx.lineTo(LOUPE_SIZE / 2, LOUPE_SIZE);
       ctx.moveTo(0, LOUPE_SIZE / 2);
       ctx.lineTo(LOUPE_SIZE, LOUPE_SIZE / 2);
+      ctx.strokeStyle = bg;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = fg;
+      ctx.lineWidth = 1;
       ctx.stroke();
     }
 
-    const locator = locatorRef.current;
-    if (locator) {
+    for (const locator of locators.current) {
       const ctx = locator.getContext("2d")!;
       ctx.clearRect(0, 0, LOCATOR_WIDTH, LOCATOR_HEIGHT);
-      const scale = Math.min(
-        LOCATOR_WIDTH / image.naturalWidth,
-        LOCATOR_HEIGHT / image.naturalHeight,
-      );
-      const w = image.naturalWidth * scale;
-      const h = image.naturalHeight * scale;
+      // The same crop as the photo, so the garment fills the thumbnail
+      // rather than sitting small in a frame of floor.
+      const crop = view ?? {
+        x: 0,
+        y: 0,
+        w: image.naturalWidth,
+        h: image.naturalHeight,
+      };
+      const scale = Math.min(LOCATOR_WIDTH / crop.w, LOCATOR_HEIGHT / crop.h);
+      const w = crop.w * scale;
+      const h = crop.h * scale;
       const ox = (LOCATOR_WIDTH - w) / 2;
       const oy = (LOCATOR_HEIGHT - h) / 2;
       ctx.globalAlpha = 0.45;
-      ctx.drawImage(image, ox, oy, w, h);
+      ctx.drawImage(image, crop.x, crop.y, crop.w, crop.h, ox, oy, w, h);
       ctx.globalAlpha = 1;
       ctx.strokeStyle = fg;
       ctx.strokeRect(
-        Math.round(ox + loupeAt.x * scale) - 5.5,
-        Math.round(oy + loupeAt.y * scale) - 5.5,
+        Math.round(ox + (loupeAt.x - crop.x) * scale) - 5.5,
+        Math.round(oy + (loupeAt.y - crop.y) * scale) - 5.5,
         11,
         11,
       );
     }
-  }, [loupeAt]);
+  }, [loupeAt, view]);
 
   /**
    * Pressing Next accepts the pins where they are. That is a decision, not
@@ -452,7 +583,7 @@ export function MeasureScreen({
     setPending(true);
     setNote(null);
     try {
-      await saveMeasurements({
+      const { added } = await saveMeasurements({
         garmentId: garment.id,
         photoId: photo.id,
         rows: keys.map((key) => {
@@ -477,6 +608,11 @@ export function MeasureScreen({
         ...Object.fromEntries(keys.map((k) => [k, measure(handles[k])])),
       }));
       setLeaving(true);
+      toast({
+        message: added ? "Added to closet" : "Measurements updated",
+        detail: garmentLabel(garment),
+        href: `/item/${garment.id}`,
+      });
       router.push(doneHref);
     } catch {
       setNote("Could not store. Check the server log.");
@@ -542,6 +678,33 @@ export function MeasureScreen({
     </Link>
   );
 
+  /* While a pin is held the loupe takes the reading's place, beside the
+     sketch and above the photo, never over it: the garment fills the width
+     now, and anything laid on top of it covers cloth somebody is aiming at.
+     The locator sits beside it, since a magnified patch of cloth says
+     nothing about where on the garment it is. On a phone the loupe takes
+     whatever the locator leaves, and is absolutely placed inside a box the
+     sketch's height, so it cannot make the block taller and slide the photo
+     out from under the finger mid-drag. */
+  const loupe = (
+    <div className="flex min-w-0 flex-1 items-start gap-2 self-stretch md:self-start">
+      <canvas
+        ref={locatorRef}
+        width={LOCATOR_WIDTH}
+        height={LOCATOR_HEIGHT}
+        className="border-fg bg-bg shrink-0 border"
+      />
+      <div className="relative min-w-0 flex-1 self-stretch md:flex-none md:self-start">
+        <canvas
+          ref={loupeRef}
+          width={LOUPE_SIZE}
+          height={LOUPE_SIZE}
+          className="absolute inset-0 h-full w-full object-contain object-left-top md:static md:h-[180px] md:w-[180px] md:border md:border-fg"
+        />
+      </div>
+    </div>
+  );
+
   /* The reading: which dimension, what the pins say, and the loupe while a
      pin is held. On a phone a small sketch sits beside it so the guide line
      is visible without scrolling away from the photo; on desktop the sketch
@@ -559,22 +722,28 @@ export function MeasureScreen({
           className="block h-auto w-44 shrink-0 md:hidden"
         />
       ) : null}
-      <div className="min-w-0">
-        <p className="label text-fg2">
-          <span className="data text-fg3">{stepLabel}</span>{" "}
-          {activeDimension?.label}
-        </p>
-        <p className="mt-1">
-          <span className="font-mono text-24 tracking-[-0.03em]">
-            {liveMm ?? "—"}
-          </span>
-          <span className="text-fg2 ml-1.5 text-12">mm</span>
-        </p>
-        <p className="text-fg3 mt-1 text-11">
-          Drag either pin. It magnifies beside the photo while you hold it.
-        </p>
-      </div>
-      <div className="ml-auto">{exit}</div>
+      {loupeAt ? (
+        loupe
+      ) : (
+        <>
+          <div className="min-w-0">
+            <p className="label text-fg2">
+              <span className="data text-fg3">{stepLabel}</span>{" "}
+              {activeDimension?.label}
+            </p>
+            <p className="mt-1">
+              <span className="font-mono text-24 tracking-[-0.03em]">
+                {liveMm ?? "—"}
+              </span>
+              <span className="text-fg2 ml-1.5 text-12">mm</span>
+            </p>
+            <p className="text-fg3 mt-1 text-11">
+              Drag either pin. It magnifies here while you hold it.
+            </p>
+          </div>
+          <div className="ml-auto">{exit}</div>
+        </>
+      )}
     </div>
   );
 
@@ -665,8 +834,8 @@ export function MeasureScreen({
       </>
     ) : (
       <p className="text-fg2 text-12">
-        No template for this category yet. Tops and bottoms are in Phase 0;
-        shoes and hats get their own flows in Phase 2.
+        No template for this category. Shoes and hats are sized rather than
+        measured, and their flow comes later.
       </p>
     );
 
@@ -680,7 +849,7 @@ export function MeasureScreen({
     }
     if (!photo.cutoutPath) {
       return (
-        <p className="data text-fg3 text-center md:text-left">Cutting out…</p>
+        <CuttingOut photoId={photo.id} />
       );
     }
     return null;
@@ -696,43 +865,46 @@ export function MeasureScreen({
       <div className="md:hidden">{reading}</div>
 
       <div className="relative flex items-start justify-center md:col-start-1 md:row-span-2 md:row-start-1 md:h-full md:min-h-0">
-        {/* Pointer events pass through the loupe so a drag is not
-            interrupted by the thing the drag is drawing. */}
+        {/* The frame is the view's shape, as wide as the column allows and
+            no taller than the screen's share for the photo. The overlay
+            positions pins against it. */}
         <div
-          className={`pointer-events-none absolute top-0 right-0 z-10 flex flex-row-reverse items-start gap-2 ${loupeAt ? "" : "hidden"}`}
+          ref={frameRef}
+          className="measure-frame relative select-none"
+          style={{
+            aspectRatio: view ? `${view.w} / ${view.h}` : "3 / 4",
+            width: `min(100%, calc(var(--photo-max-h) * ${view ? view.w / view.h : 0.75}))`,
+          }}
         >
-          <canvas
-            ref={loupeRef}
-            width={LOUPE_SIZE}
-            height={LOUPE_SIZE}
-            className="border-fg bg-bg border"
-          />
-          <canvas
-            ref={locatorRef}
-            width={LOCATOR_WIDTH}
-            height={LOCATOR_HEIGHT}
-            className="border-fg bg-bg border"
-          />
-        </div>
-        {/* The frame hugs the image exactly, since the overlay positions
-            pins against it. */}
-        <div ref={frameRef} className="relative w-fit select-none">
-          {/* Plain <img> on purpose: the mask is read off these exact
-              pixels, so nothing may resample them. See eslint.config.mjs. */}
-          <img
-            key={photo.id}
-            ref={attachImage}
-            src={`/api/media/${source}`}
-            alt=""
-            onLoad={(event) => readImage(event.currentTarget)}
-            className="block h-auto max-h-(--measure-photo-h) w-auto max-w-full md:max-h-[calc(100dvh-var(--header-h)-var(--screen-gap))]"
-            draggable={false}
-          />
+          <div className="absolute inset-0 overflow-hidden">
+            {/* Plain <img> on purpose: the mask is read off these exact
+                pixels, so nothing may resample them. See eslint.config.mjs. */}
+            <img
+              key={photo.id}
+              ref={attachImage}
+              src={`/api/media/${source}`}
+              alt=""
+              onLoad={(event) => readImage(event.currentTarget)}
+              className="absolute max-w-none"
+              style={
+                view && natural
+                  ? {
+                      left: -view.x * displayScale,
+                      top: -view.y * displayScale,
+                      width: natural.w * displayScale,
+                      height: natural.h * displayScale,
+                    }
+                  : { left: 0, top: 0, width: "100%" }
+              }
+              draggable={false}
+            />
+          </div>
 
           {currentHandles ? (
             <Overlay
               handles={currentHandles}
               scale={displayScale}
+              origin={view ?? { x: 0, y: 0 }}
               onGrab={(which, event) => {
                 event.preventDefault();
                 setDragging(which);
@@ -745,7 +917,7 @@ export function MeasureScreen({
 
       <div className="md:hidden">
         {nextRow}
-        {status ? <div className="mt-3">{status}</div> : null}
+        <div className="mt-3">{status}</div>
       </div>
 
       {/* Desktop: one panel, reading on top, stuck under the header while the
@@ -757,7 +929,7 @@ export function MeasureScreen({
             the column, so they sit under the guide where the eye ends. */}
         <div className="hidden pt-6 md:block">
           {nextRow}
-          {status ? <div className="mt-3">{status}</div> : null}
+          <div className="mt-3">{status}</div>
         </div>
         {note ? <p className="data text-fg2 mt-3">{note}</p> : null}
       </div>
@@ -768,18 +940,25 @@ export function MeasureScreen({
 function Overlay({
   handles,
   scale,
+  origin,
   onGrab,
 }: {
   handles: Handles;
   scale: number;
+  /** The photograph pixel at the frame's top-left corner. */
+  origin: Point;
   onGrab: (which: "p1" | "p2", event: React.PointerEvent) => void;
 }) {
-  const a = { x: handles.p1.x * scale, y: handles.p1.y * scale };
-  const b = { x: handles.p2.x * scale, y: handles.p2.y * scale };
+  const at = (p: Point) => ({
+    x: (p.x - origin.x) * scale,
+    y: (p.y - origin.y) * scale,
+  });
+  const a = at(handles.p1);
+  const b = at(handles.p2);
 
   return (
     <>
-      <svg className="pointer-events-none absolute inset-0 h-full w-full">
+      <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
         <line
           x1={a.x}
           y1={a.y}
@@ -814,5 +993,38 @@ function Overlay({
         );
       })}
     </>
+  );
+}
+
+function garmentLabel(g: GarmentSummary): string {
+  return [String(g.shortId).padStart(3, "0"), g.brand, g.name]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * The first cut, with how far along it probably is. Estimated from how long
+ * this provider has taken lately; see useJobProgress.
+ */
+function CuttingOut({ photoId }: { photoId: string }) {
+  const { snapshot } = useActivity();
+  const job = snapshot?.jobs.find((j) => j.photoId === photoId && isActive(j));
+  const progress = useJobProgress(job);
+  const running = job?.status === "running";
+  return (
+    <div className="text-center md:text-left">
+      <p className="data text-fg3">
+        {!running
+          ? "Cutting out… queued"
+          : progress?.expected
+            ? `Cutting out… ${progress.elapsed}s of ~${Math.round(progress.expected)}s`
+            : "Cutting out…"}
+      </p>
+      {job ? (
+        <div className="mx-auto mt-1.5 max-w-60 md:mx-0">
+          <ProgressBar fraction={progress?.fraction ?? 0} />
+        </div>
+      ) : null}
+    </div>
   );
 }

@@ -1,29 +1,21 @@
 # Worker
 
-Polls the `job` table with `FOR UPDATE SKIP LOCKED` and writes cutouts.
+Polls the Postgres `job` table (`FOR UPDATE SKIP LOCKED`) and runs cutouts.
+Normally started by `docker compose up`; see `docs/SETUP.md`.
 
-**Phase 0 is segmentation only.** BiRefNet decides which existing pixels are
-garment; it generates nothing. Try-on generation is Phase 4 and is a hosted
-HTTPS call. No generative model ever runs here.
-
-## Run
-
-```bash
-python3.12 -m venv .venv
-./.venv/bin/pip install -e .            # base: chroma provider, no download
-./.venv/bin/pip install -e '.[local]'   # adds BiRefNet (~3.5GB on first job)
-./.venv/bin/python -m worker.main
-```
-
-`GET http://localhost:8000/health` reports the provider and the job counters.
-
-## Providers — `CUTOUT_PROVIDER`
-
-| Value | What it is | Cost |
+| `CUTOUT_PROVIDER` | What | Cost |
 |---|---|---|
-| `local` | BiRefNet (MIT). GPU optional; CPU works. | free, ~3.5GB once |
-| `chroma` | Chroma key + border flood fill. No model. | free, instant |
-| `replicate` | `851-labs/background-remover`. Needs `REPLICATE_API_TOKEN`. | ~$0.0004/image |
+| `local` | BiRefNet (MIT), CPU, gated to the rig. The default | free, ~30–40 s |
+| `chroma` | Chroma key inside the rig. No model | free, instant |
+| `replicate` | `851-labs/background-remover`, needs a token | ~$0.0004 |
 
-Never swap in rembg's default session — that is `bria-rmbg`, CC BY-NC, and this
-repo is MIT. Pass `-m birefnet-general` if rembg is ever used at all.
+A job's payload may name a `provider` (a bulk re-cut); otherwise the default
+runs. With a GPU (`docker-compose.gpu.yml`), BiRefNet runs on CUDA in half
+precision.
+Each provider is built once per process. Every cut records its path, provider
+and garment bounds on the photo, and writes a 3:4 tile beside it.
+
+`GET :8000/health` reports the default provider and counters; the app's
+`/status` page reads it.
+
+Never use rembg's default `bria-rmbg` session (CC BY-NC).

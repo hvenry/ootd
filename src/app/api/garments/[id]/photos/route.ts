@@ -3,7 +3,14 @@ import { and, eq } from "drizzle-orm";
 
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
-import { garment, job, photo, type PhotoView } from "@/db/schema";
+import {
+  detailKindEnum,
+  garment,
+  job,
+  photo,
+  type DetailKind,
+  type PhotoView,
+} from "@/db/schema";
 import { parseCalibration } from "@/lib/capture";
 import { newId } from "@/lib/ids";
 import { contentHash, writeOriginal } from "@/lib/storage";
@@ -18,6 +25,10 @@ const VIEWS: PhotoView[] = ["front", "back", "detail"];
  *
  * Each view is shot against the rig in its own right and carries its own
  * homography; nothing is shared but the garment.
+ *
+ * A detail is the exception: a close-up shot off the rig, with no markers,
+ * no homography and no cutout. It is kept for what it shows, never measured,
+ * and a garment has as many as it needs.
  */
 export async function POST(
   request: Request,
@@ -31,17 +42,26 @@ export async function POST(
     return NextResponse.json({ error: "No image" }, { status: 400 });
   }
 
-  const calibration = parseCalibration(form.get("calibration"));
-  if (!calibration) {
+  const view = String(form.get("view") ?? "back") as PhotoView;
+  if (!VIEWS.includes(view)) {
+    return NextResponse.json({ error: "Unknown view" }, { status: 400 });
+  }
+
+  let detailKind: DetailKind | null = null;
+  if (view === "detail") {
+    detailKind = String(form.get("detailKind") ?? "") as DetailKind;
+    if (!detailKindEnum.enumValues.includes(detailKind)) {
+      return NextResponse.json({ error: "Unknown detail kind" }, { status: 400 });
+    }
+  }
+
+  const calibration =
+    view === "detail" ? null : parseCalibration(form.get("calibration"));
+  if (view !== "detail" && !calibration) {
     return NextResponse.json(
       { error: "Missing or malformed homography" },
       { status: 400 },
     );
-  }
-
-  const view = String(form.get("view") ?? "back") as PhotoView;
-  if (!VIEWS.includes(view)) {
-    return NextResponse.json({ error: "Unknown view" }, { status: 400 });
   }
 
   const [owned] = await db
@@ -59,6 +79,18 @@ export async function POST(
     Buffer.from(await file.arrayBuffer()),
     file.type || "image/jpeg",
   );
+
+  if (!calibration) {
+    await db.insert(photo).values({
+      id: photoId,
+      ownerId: OWNER_ID,
+      garmentId,
+      view,
+      detailKind,
+      originalPath,
+    });
+    return NextResponse.json({ garmentId, photoId, view });
+  }
 
   await db.transaction(async (tx) => {
     // Reshooting a view replaces it; the measurements on the old one go with

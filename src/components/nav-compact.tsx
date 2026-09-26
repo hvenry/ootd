@@ -9,6 +9,7 @@ import { BRAND } from "@/config/brand";
 import { NavLink } from "@/components/nav-link";
 import { SearchPopover } from "@/components/search-popover";
 import { Sheet } from "@/components/sheet";
+import { StatusCount, StatusLink } from "@/components/status-link";
 
 /**
  * The header below `lg`: menu and search icons left, wordmark centred, Add
@@ -63,7 +64,8 @@ export function NavCompact() {
           {BRAND}
         </Link>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-4">
+          <StatusCount />
           <Link
             href="/capture"
             className="link-text inline-flex cursor-pointer items-center"
@@ -80,6 +82,7 @@ export function NavCompact() {
         open={open}
         title="Menu"
         onClose={close}
+        closeLabel="Close"
         className="pointer-events-auto"
       >
         {/* Taking a link closes the sheet behind it. */}
@@ -93,6 +96,7 @@ export function NavCompact() {
             <Plus size={12} weight="bold" aria-hidden />
             Add
           </NavLink>
+          <StatusLink />
           <NavLink href="/measurements">Measurements</NavLink>
           <NavLink href="/sheet">Settings</NavLink>
         </nav>

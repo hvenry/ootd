@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { deleteGarment, updateGarmentDetails } from "@/app/actions";
+import { useActivity } from "@/components/activity";
+import { BrandField } from "@/components/brand-field";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { ColourDots } from "@/components/colour-dots";
 import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
@@ -16,6 +18,7 @@ import {
   type Category,
   type MeasurementKey,
 } from "@/lib/measure/templates";
+import type { KnownBrand } from "@/lib/search/brands";
 
 /**
  * Correct what was typed at capture. Category is editable too, but changing it
@@ -31,8 +34,11 @@ export function GarmentDetails({
   declaredColour,
   shortId,
   measuredKeys,
+  brands,
   onClose,
 }: {
+  /** The closet's brands, offered as the brand is typed. */
+  brands: KnownBrand[];
   garmentId: string;
   category: Category;
   brand: string | null;
@@ -44,6 +50,7 @@ export function GarmentDetails({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { toast } = useActivity();
   const [draftBrand, setDraftBrand] = useState(brand ?? "");
   const [draftName, setDraftName] = useState(name ?? "");
   const [draftCategory, setDraftCategory] = useState<Category>(category);
@@ -52,6 +59,20 @@ export function GarmentDetails({
   const [note, setNote] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
   const [removing, setRemoving] = useState(false);
+
+  // Edit replaces the diagram, which on a phone sits under the photo, so
+  // the form opened below the fold and nothing said it had. Bring Brand up
+  // under the header. Below lg only: from there the column is sticky and
+  // already in view, and scrolling a sticky element just jolts the page.
+  const fieldsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 1023.98px)").matches) return;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    fieldsRef.current?.scrollIntoView({
+      block: "start",
+      behavior: still ? "auto" : "smooth",
+    });
+  }, []);
 
   const dirty =
     draftBrand !== (brand ?? "") ||
@@ -86,6 +107,10 @@ export function GarmentDetails({
         category: draftCategory,
       });
       router.refresh();
+      toast({
+        message: "Details saved",
+        detail: [draftBrand, draftName].filter(Boolean).join(" ") || undefined,
+      });
       // Dropping measurements is worth a pause; a plain save is not.
       if (droppedKeys.length > 0) {
         setNote(
@@ -105,6 +130,10 @@ export function GarmentDetails({
     setRemoving(true);
     try {
       await deleteGarment(garmentId);
+      toast({
+        message: "Removed from closet",
+        detail: [brand, name].filter(Boolean).join(" ") || undefined,
+      });
       router.push("/");
     } catch {
       setRemoving(false);
@@ -116,12 +145,14 @@ export function GarmentDetails({
   return (
     <section>
       <p className="label mb-4">Details</p>
-      <div className="grid gap-4">
-        <Field
-          label="Brand"
+      <div
+        ref={fieldsRef}
+        className="grid scroll-mt-[calc(var(--header-h)+1rem)] gap-4"
+      >
+        <BrandField
           value={draftBrand}
           onChange={setDraftBrand}
-          placeholder="Brand"
+          brands={brands}
         />
         <Field
           label="Name"

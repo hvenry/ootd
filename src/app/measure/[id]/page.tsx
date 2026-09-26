@@ -1,7 +1,8 @@
 import { notFound, redirect } from "next/navigation";
 import { and, asc, eq } from "drizzle-orm";
 
-import { MeasureScreen } from "@/components/measure-screen";
+import { MeasureScreen, type CutoutBounds } from "@/components/measure-screen";
+import { unmeasuredGarments } from "@/lib/measure-queue";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { garment, measurement, photo, type PhotoView } from "@/db/schema";
@@ -24,9 +25,16 @@ export default async function MeasurePage({
 }) {
   const { id } = await params;
   const { next } = await searchParams;
-  // The add flow ends in the closet; an update from the item page returns
-  // to the item.
-  const doneHref = next === "closet" ? "/" : `/item/${id}`;
+  // "Measure now" in the add flow ends in the closet; working through the
+  // closet's to-measure queue goes on to the next unmeasured garment; an
+  // update from the item page returns to the item.
+  let doneHref = next === "closet" ? "/" : `/item/${id}`;
+  if (next === "queue") {
+    const following = (await unmeasuredGarments(OWNER_ID)).find(
+      (g) => g.id !== id,
+    );
+    doneHref = following ? `/measure/${following.id}?next=queue` : "/";
+  }
 
   const [row] = await db
     .select()
@@ -78,6 +86,7 @@ export default async function MeasurePage({
         view: front.view as PhotoView,
         originalPath: front.originalPath,
         cutoutPath: front.cutoutPath,
+        cutoutBounds: front.cutoutBounds as CutoutBounds | null,
         homography: calibration.m,
         pxPerMm: calibration.pxPerMm,
       }}

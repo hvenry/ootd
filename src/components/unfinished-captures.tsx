@@ -4,7 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import { deleteGarment } from "@/app/actions";
+import { deleteGarment, finishCapture } from "@/app/actions";
+import { useActivity } from "@/components/activity";
 import { CATEGORY_LABELS, type Category } from "@/lib/measure/templates";
 
 export type UnfinishedCapture = {
@@ -18,7 +19,7 @@ export type UnfinishedCapture = {
 };
 
 /**
- * Captures that were started and never submitted.
+ * Captures that were started and never added: a face is missing.
  *
  * They cannot simply be hidden. A garment row exists from the first
  * photograph (the cutout job needs a file and a row to write back to) so
@@ -39,8 +40,8 @@ export function UnfinishedCaptures({ items }: { items: UnfinishedCapture[] }) {
         </p>
       </div>
       <p className="text-fg2 mb-4 max-w-lg text-11">
-        Photographed but never submitted, so they are not in the closet yet.
-        Finish the measurements or throw the capture away.
+        Started but missing a photo, so they are not in the closet yet. Shoot
+        the missing face or throw the capture away.
       </p>
 
       <ul>
@@ -55,14 +56,28 @@ export function UnfinishedCaptures({ items }: { items: UnfinishedCapture[] }) {
 /** What still has to happen before this is a garment. */
 function missing(views: string[]): string {
   const absent = ["front", "back"].filter((v) => !views.includes(v));
-  if (absent.length === 0) return "not measured";
+  if (absent.length === 0) return "both photos, never added";
   return `no ${absent.join(" or ")} photo`;
 }
 
 function Row({ item }: { item: UnfinishedCapture }) {
   const router = useRouter();
+  const { toast } = useActivity();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
+  const complete = ["front", "back"].every((v) => item.views.includes(v));
+
+  // Both faces are in and the capture was left before Add was pressed.
+  async function onAdd() {
+    setPending(true);
+    try {
+      await finishCapture(item.id);
+      toast({ message: "Added to closet", href: `/item/${item.id}` });
+      router.refresh();
+    } catch {
+      setPending(false);
+    }
+  }
 
   async function onDelete() {
     if (!confirming) {
@@ -72,6 +87,10 @@ function Row({ item }: { item: UnfinishedCapture }) {
     setPending(true);
     try {
       await deleteGarment(item.id);
+      toast({
+        message: "Capture discarded",
+        detail: [item.brand, item.name].filter(Boolean).join(" ") || undefined,
+      });
       router.refresh();
     } catch {
       setPending(false);
@@ -95,9 +114,21 @@ function Row({ item }: { item: UnfinishedCapture }) {
         </div>
 
         <div className="mt-3 flex gap-2 sm:mt-0 sm:shrink-0">
-          <Link href={`/measure/${item.id}`} className="chip">
-            Finish
-          </Link>
+          {complete ? (
+            <button
+              type="button"
+              className="chip"
+              onClick={onAdd}
+              disabled={pending}
+            >
+              Add
+            </button>
+          ) : (
+            // The measure route sends a capture back for its missing face.
+            <Link href={`/measure/${item.id}`} className="chip">
+              Finish
+            </Link>
+          )}
           <button
             type="button"
             className="chip chip-danger"

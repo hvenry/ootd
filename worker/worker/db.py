@@ -98,28 +98,49 @@ def set_cutout_path(
     photo_id: str,
     view: str,
     path: str,
-) -> bool:
+    provider: str,
+    bounds: dict[str, int] | None = None,
+) -> str | bool | None:
     """
     The cutout belongs to the photo. The garment also carries the *front*
     cutout, denormalised, so the closet grid stays one query.
 
-    Returns whether the photo was still there. It may not be: a capture can
-    be deleted while its cutout is mid-flight, and the delete can only unlink
-    files the row knew about — which does not include a cutout that had not
-    been written yet. The caller is expected to clean up after itself when
-    this comes back false, or that PNG is on disk forever with nothing
-    pointing at it.
+    Returns False if the photo is gone, otherwise the cutout path it had
+    before (None on a first cut) so a re-cut can remove the file it replaced.
+
+    The photo may be gone: a capture can be deleted while its cutout is
+    mid-flight, and the delete can only unlink files the row knew about —
+    which does not include a cutout that had not been written yet. The caller
+    is expected to clean up after itself when this comes back False, or that
+    PNG is on disk forever with nothing pointing at it.
     """
     with conn.cursor() as cur:
+        # The row is locked for the read so two re-cuts landing together
+        # cannot both see the same "previous" and leave one file behind.
         cur.execute(
-            "UPDATE photo SET cutout_path = %s WHERE id = %s AND owner_id = %s",
-            (path, photo_id, owner_id),
+            "SELECT cutout_path FROM photo WHERE id = %s AND owner_id = %s FOR UPDATE",
+            (photo_id, owner_id),
         )
-        still_there = cur.rowcount > 0
-        if still_there and view == "front":
+        row = cur.fetchone()
+        if row is None:
+            conn.commit()
+            return False
+        previous = row["cutout_path"]
+        cur.execute(
+            "UPDATE photo SET cutout_path = %s, cutout_provider = %s,"
+            " cutout_bounds = %s WHERE id = %s AND owner_id = %s",
+            (
+                path,
+                provider,
+                json.dumps(bounds) if bounds else None,
+                photo_id,
+                owner_id,
+            ),
+        )
+        if view == "front":
             cur.execute(
                 "UPDATE garment SET cutout_path = %s WHERE id = %s AND owner_id = %s",
                 (path, garment_id, owner_id),
             )
     conn.commit()
-    return still_there
+    return previous

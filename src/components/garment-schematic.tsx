@@ -26,12 +26,66 @@ import { type DisplayUnit, formatLength, unitSuffix } from "@/lib/units";
 
 /* User units inside the viewBox, not pixels: the diagram is drawn at any
    size, so the figures scale with the shape they annotate. */
-const FONT_SIZE = 4.6;
-/* Mono glyphs are ~0.6em wide; the hover box is sized from that rather than
-   measured, so it needs no layout pass. */
-const CHAR_W = FONT_SIZE * 0.66;
+const FONT_SIZE = 5.8;
+/* Tracking on the figures, in em. */
+const LETTER_SPACING = 0.02;
+/* IBM Plex Mono advances exactly 0.6em a glyph, so the hover box is computed
+   rather than measured and needs no layout pass. It has to be exact: a
+   padded guess overshoots a little per character, and on the longest
+   figures, inches in eighths like 21 5/8", that piled up as a box visibly
+   wider on the right than the left. */
+const CHAR_W = FONT_SIZE * (0.6 + LETTER_SPACING);
 const BOX_PAD_X = 1.4;
 const BOX_PAD_Y = 0.9;
+/* The white halo behind each figure, half its stroke width. */
+const HALO = 1;
+
+type Box = { x: number; y: number; w: number; h: number };
+
+/** Where a figure's hover box sits, from its anchor. */
+function labelBox(
+  text: string,
+  lx: number,
+  ly: number,
+  anchor: "start" | "middle" | "end",
+): Box {
+  // Tracking follows every glyph, the last one too, but the last one's
+  // is empty space and would pad only the right.
+  const w =
+    text.length * CHAR_W - FONT_SIZE * LETTER_SPACING + BOX_PAD_X * 2;
+  const h = FONT_SIZE + BOX_PAD_Y * 2;
+  const x =
+    anchor === "end"
+      ? lx - w + BOX_PAD_X
+      : anchor === "middle"
+        ? lx - w / 2
+        : lx - BOX_PAD_X;
+  return { x, y: ly - FONT_SIZE * 0.78 - BOX_PAD_Y, w, h };
+}
+
+/**
+ * The drawing's frame, grown to take every figure it carries.
+ *
+ * The padded box is sized for the shape, and a label hung off the far end of
+ * a sleeve does not fit in it once it reads "21 5/8 \"" rather than "548 mm".
+ * An SVG clips at its viewBox, so the figure was cut off mid-number. Growing
+ * the frame to the labels actually drawn means no unit and no text size can
+ * clip, at the cost of the shape drawing a touch smaller when one sticks out.
+ */
+function frameFor(padded: string, boxes: Box[]): string {
+  const [px, py, pw, ph] = padded.split(" ").map(Number);
+  let x0 = px;
+  let y0 = py;
+  let x1 = px + pw;
+  let y1 = py + ph;
+  for (const b of boxes) {
+    x0 = Math.min(x0, b.x - HALO);
+    y0 = Math.min(y0, b.y - HALO);
+    x1 = Math.max(x1, b.x + b.w + HALO);
+    y1 = Math.max(y1, b.y + b.h + HALO);
+  }
+  return `${x0} ${y0} ${x1 - x0} ${y1 - y0}`;
+}
 
 export function GarmentSchematic({
   silhouette,
@@ -60,9 +114,23 @@ export function GarmentSchematic({
   const shape = SILHOUETTES[silhouette];
   const showingValues = Object.keys(values).length > 0;
 
+  const labels = dimensions.map((dimension) => {
+    const mm = values[dimension.key];
+    const text =
+      mm != null ? `${formatLength(mm, unit)} ${unitSuffix(unit)}` : "—";
+    const { lx, ly, anchor } = dimension.hint;
+    return { mm, text, box: labelBox(text, lx, ly, anchor) };
+  });
+  const viewBox = showingValues
+    ? frameFor(
+        shape.padded,
+        labels.map((l) => l.box),
+      )
+    : shape.padded;
+
   return (
     <svg
-      viewBox={shape.padded}
+      viewBox={viewBox}
       className={className}
       role="img"
       aria-label={dimensions
@@ -75,23 +143,11 @@ export function GarmentSchematic({
     >
       <GarmentFigure silhouette={silhouette} category={category} />
 
-      {dimensions.map((dimension) => {
+      {dimensions.map((dimension, i) => {
         const { x1, y1, x2, y2, lx, ly, anchor } = dimension.hint;
-        const mm = values[dimension.key];
+        const { mm, text, box } = labels[i];
         const active = activeKey === dimension.key;
         const stroke = active ? "var(--fg)" : "var(--fg3)";
-        const text =
-          mm != null ? `${formatLength(mm, unit)} ${unitSuffix(unit)}` : "—";
-        // Box geometry for the hover state, from the text anchor.
-        const w = text.length * CHAR_W + BOX_PAD_X * 2;
-        const h = FONT_SIZE + BOX_PAD_Y * 2;
-        const bx =
-          anchor === "end"
-            ? lx - w + BOX_PAD_X
-            : anchor === "middle"
-              ? lx - w / 2
-              : lx - BOX_PAD_X;
-        const by = ly - FONT_SIZE * 0.78 - BOX_PAD_Y;
 
         return (
           /* `.schematic-dim` carries the hover: the line goes solid and
@@ -103,12 +159,25 @@ export function GarmentSchematic({
             data-active={active || undefined}
             /* Handlers only when asked for, so a Server Component can draw
                the diagram as a static figure. */
+            /* Hover is a mouse thing. A tap fires enter and then leave
+               before its click, so on a phone the name flashed on, fell
+               back for a frame, and came back when the selection landed. */
             onPointerEnter={
               onHover
-                ? () => onHover(dimension.key as MeasurementKey)
+                ? (e) => {
+                    if (e.pointerType === "mouse") {
+                      onHover(dimension.key as MeasurementKey);
+                    }
+                  }
                 : undefined
             }
-            onPointerLeave={onHover ? () => onHover(null) : undefined}
+            onPointerLeave={
+              onHover
+                ? (e) => {
+                    if (e.pointerType === "mouse") onHover(null);
+                  }
+                : undefined
+            }
             onClick={
               onSelect
                 ? () => onSelect(dimension.key as MeasurementKey)
@@ -156,10 +225,10 @@ export function GarmentSchematic({
             ))}
             {showingValues ? (
               <rect
-                x={bx}
-                y={by}
-                width={w}
-                height={h}
+                x={box.x}
+                y={box.y}
+                width={box.w}
+                height={box.h}
                 fill="var(--fg)"
                 className="schematic-dim-box"
               />
@@ -176,13 +245,13 @@ export function GarmentSchematic({
                   fontFamily: "var(--font-mono)",
                   fontVariantNumeric: "tabular-nums",
                   fontSize: FONT_SIZE,
-                  letterSpacing: "0.02em",
+                  letterSpacing: `${LETTER_SPACING}em`,
                 }}
                 fill={mm != null ? "var(--fg)" : "var(--fg3)"}
                 /* A halo, so a label crossing an outline stays readable without
                    introducing a filled box the design system does not allow. */
                 stroke="var(--bg)"
-                strokeWidth={2}
+                strokeWidth={HALO * 2}
                 paintOrder="stroke"
                 className="schematic-dim-value"
               >

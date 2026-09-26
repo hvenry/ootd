@@ -4,6 +4,7 @@ import { and, asc, eq } from "drizzle-orm";
 import { ItemScreen } from "@/components/item-screen";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
+import { knownBrands } from "@/lib/brands";
 import { tilePathFor } from "@/lib/storage";
 import { garment, measurement, photo, type PhotoView } from "@/db/schema";
 import {
@@ -14,7 +15,7 @@ import {
 
 export const metadata = { title: "Item" };
 
-/** Front first, then back, then anything else. */
+/** Front first, then back, then the details in the order they were shot. */
 const viewOrder = (view: string) =>
   view === "front" ? 0 : view === "back" ? 1 : 2;
 export const dynamic = "force-dynamic";
@@ -71,17 +72,22 @@ export default async function ItemPage({
         declaredColour: row.declaredColour,
       }}
       photos={photos
-        .filter((p) => p.view === "front" || p.view === "back")
-        .sort((a, b) => viewOrder(a.view) - viewOrder(b.view))
+        .sort(
+          (a, b) =>
+            viewOrder(a.view) - viewOrder(b.view) ||
+            a.takenAt.getTime() - b.takenAt.getTime(),
+        )
         .map((p) => ({
           id: p.id,
           view: p.view as PhotoView,
+          detailKind: p.detailKind,
           src: `/api/media/${p.cutoutPath ? tilePathFor(p.cutoutPath) : p.originalPath}`,
           fallback: `/api/media/${p.cutoutPath ?? p.originalPath}`,
         }))}
       dimensions={templateFor(category)}
       silhouette={silhouetteFor(category)}
       values={Object.fromEntries(existing.map((m) => [m.key, m.valueMm]))}
+      brands={await knownBrands(OWNER_ID)}
     />
   );
 }

@@ -3,8 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
+import { finishCapture } from "@/app/actions";
+import { useActivity } from "@/components/activity";
+import { DetailShots } from "@/components/detail-shots";
 import { GarmentForm, type GarmentDraft } from "@/components/garment-form";
 import { GarmentOutline } from "@/components/garment-hint";
+import type { KnownBrand } from "@/lib/search/brands";
 import {
   detectSheet,
   isDetectionFailure,
@@ -19,8 +23,12 @@ import { fileToCanvas, renderWarpPreview } from "@/lib/homography/warp";
 import { silhouetteFor, type PhotoView } from "@/lib/measure/templates";
 
 type Mode = "idle" | "detecting" | "found" | "failed" | "saving";
-/** Details first, then one photograph per view. */
-type Stage = "details" | "shoot";
+/**
+ * Details first, then one photograph per face, then any close-ups. The
+ * close-ups are their own stage because they skip everything the faces
+ * need: no markers, no homography, no cutout.
+ */
+type Stage = "details" | "shoot" | "closeups";
 
 /** A phone photo is far larger than the box it is shown in; drawing it at
     full resolution costs tens of megabytes of canvas for no visible gain. */
@@ -37,8 +45,9 @@ const VIEW_LABELS: Record<PhotoView, string> = {
   detail: "Detail",
 };
 
-export function CaptureScreen() {
+export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
   const router = useRouter();
+  const { toast } = useActivity();
   // With ?garment=&view= this shoots one more view of a garment that already
   // exists, which is how the measure screen sends you back for a missing
   // face, rather than walking the whole three-step flow.
@@ -52,7 +61,9 @@ export function CaptureScreen() {
   const previewHostRef = useRef<HTMLDivElement | null>(null);
   const originalHostRef = useRef<HTMLDivElement | null>(null);
 
-  const [stage, setStage] = useState<Stage>(singleView ? "shoot" : "details");
+  const [stage, setStage] = useState<Stage>(
+    !singleView ? "details" : requestedView === "detail" ? "closeups" : "shoot",
+  );
   const [draft, setDraft] = useState<GarmentDraft>({
     // Opens on tops, short sleeve: the types are showing from the start.
     group: "top",
@@ -269,10 +280,52 @@ export function CaptureScreen() {
       return;
     }
 
-    // A new garment goes straight to measuring, and from there to the
-    // closet: details, photos, measurements, done. Re-shooting a single
-    // view returns to the item you came from.
-    router.push(singleView ? `/item/${id}` : `/measure/${id}?next=closet`);
+    // A new garment goes on to its close-ups, then measuring, then the
+    // closet. Re-shooting a single view returns to the item you came from.
+    if (!singleView) {
+      clearShot();
+      setStage("closeups");
+      window.scrollTo({ top: 0 });
+      return;
+    }
+    // Reshooting the face an unfinished capture was missing completes it;
+    // with a face still missing this does nothing and the item page sends
+    // you back for it.
+    if (shooting !== "detail") {
+      const { added } = await finishCapture(id).catch(() => ({ added: false }));
+      if (added) toast({ message: "Added to closet", href: `/item/${id}` });
+    }
+    router.push(`/item/${id}`);
+  }
+
+  /**
+   * Both faces are in, so the garment goes in the closet now. Its cutouts
+   * started when each face was uploaded and carry on in the background;
+   * measuring is prompted for from the closet, or done right away.
+   */
+  async function onCloseupsDone(measureNow: boolean) {
+    if (!garmentId) return;
+    if (singleView) {
+      router.push(`/item/${garmentId}`);
+      return;
+    }
+    try {
+      await finishCapture(garmentId);
+    } catch {
+      setMessage("Could not add. Check the server log.");
+      return;
+    }
+    const label = [draft.brand, draft.name].filter(Boolean).join(" ");
+    if (measureNow) {
+      router.push(`/measure/${garmentId}?next=closet`);
+      return;
+    }
+    toast({
+      message: "Added to closet",
+      detail: label ? `${label} · cutting out, measure later` : undefined,
+      href: `/item/${garmentId}`,
+    });
+    router.push("/");
   }
 
   // The two diagonals have to agree. If they do not, one of the six numbers
@@ -327,6 +380,7 @@ export function CaptureScreen() {
           <GarmentForm
             draft={draft}
             onChange={setDraft}
+            brands={brands}
             footer={
               <div className="mt-10 flex justify-center">
                 <button
@@ -341,6 +395,17 @@ export function CaptureScreen() {
             }
           />
         </>
+      ) : stage === "closeups" && garmentId ? (
+        <DetailShots
+          garmentId={garmentId}
+          doneLabel={singleView ? "Done" : "Add to closet"}
+          onDone={() => onCloseupsDone(false)}
+          secondary={
+            singleView
+              ? undefined
+              : { label: "Measure now", onClick: () => onCloseupsDone(true) }
+          }
+        />
       ) : (
         <>
           {/* The shape to lay out and the one rule that matters. Everything

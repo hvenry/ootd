@@ -1,0 +1,9 @@
+node_modules
+.next
+.git
+storage
+worker
+.env
+.env.*
+*.tsbuildinfo
+.claude

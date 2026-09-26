@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, Inter, Newsreader } from "next/font/google";
 
+import { ActivityProvider } from "@/components/activity";
 import { Nav } from "@/components/nav";
 import { BRAND } from "@/config/brand";
 
@@ -59,10 +60,12 @@ export default function RootLayout({
       <body
         className={`${grotesque.variable} ${serifEditorial.variable} ${monoData.variable} bg-bg text-fg`}
       >
-        <Nav />
-        <main className="px-gutter pt-(--header-h) pb-(--main-pb)">
-          {children}
-        </main>
+        <ActivityProvider>
+          <Nav />
+          <main className="px-gutter pt-(--header-h) pb-(--main-pb)">
+            {children}
+          </main>
+        </ActivityProvider>
       </body>
     </html>
   );

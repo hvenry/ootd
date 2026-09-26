@@ -11,7 +11,9 @@ import {
   type Silhouette,
 } from "@/lib/measure/templates";
 import { declaredHex, declaredName } from "@/lib/colour/declared";
+import { BrandField } from "@/components/brand-field";
 import { ColourDots } from "@/components/colour-dots";
+import type { KnownBrand } from "@/lib/search/brands";
 import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
 
 export type GarmentDraft = {
@@ -98,10 +100,13 @@ function Step({
 export function GarmentForm({
   draft,
   onChange,
+  brands,
   footer,
 }: {
   draft: GarmentDraft;
   onChange: (next: GarmentDraft) => void;
+  /** The closet's brands, offered as the brand is typed. */
+  brands: KnownBrand[];
   /** The screen's Next, shown with the last question. */
   footer?: React.ReactNode;
 }) {
@@ -229,11 +234,10 @@ export function GarmentForm({
       {draft.category && draft.colour ? (
         <Step answered={answered} quiet={quiet} className="mx-auto mt-10 max-w-lg">
           <div className="grid gap-5 sm:grid-cols-2">
-            <Field
-              label="Brand"
+            <BrandField
               value={draft.brand}
               onChange={(brand) => onChange({ ...draft, brand })}
-              placeholder="Brand"
+              brands={brands}
               focusOnMount
             />
             <Field
@@ -255,30 +259,16 @@ function Field({
   value,
   onChange,
   placeholder,
-  focusOnMount = false,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
-  /**
-   * Take the cursor when the field first appears: picking a colour is the
-   * last tap, and what follows is typing. Done on mount, inside the tap
-   * that revealed it, so a phone still raises its keyboard.
-   */
-  focusOnMount?: boolean;
 }) {
-  const ref = useRef<HTMLInputElement | null>(null);
-  useEffect(() => {
-    // The page is already being taken to the bottom; let that do the
-    // scrolling rather than the focus jumping it first.
-    if (focusOnMount) ref.current?.focus({ preventScroll: true });
-  }, [focusOnMount]);
   return (
     <label className="block">
       <span className="label text-fg2">{label}</span>
       <input
-        ref={ref}
         type="text"
         value={value}
         placeholder={placeholder}

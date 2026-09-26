@@ -1,9 +1,10 @@
 """
 Cutout providers, selected by CUTOUT_PROVIDER.
 
-Phase 0 is **background removal only**. BiRefNet is a segmentation model: it
-decides which existing pixels are garment, it does not invent any. Try-on
-generation is Phase 4, it is hosted, and nothing generative ever runs here.
+These are **background removal only**. BiRefNet is a segmentation model: it
+decides which existing pixels are garment, it does not invent any.
+Generation (standardisation, outfits) is hosted and lives behind its own
+provider interface, not here.
 """
 
 from __future__ import annotations
@@ -35,9 +36,24 @@ class CutoutProvider(Protocol):
         ...
 
 
-def get_provider(name: str | None = None) -> CutoutProvider:
-    chosen = (name or config.CUTOUT_PROVIDER).lower()
+_instances: dict[str, CutoutProvider] = {}
 
+
+def get_provider(name: str | None = None) -> CutoutProvider:
+    """
+    One instance per provider for the life of the worker.
+
+    A re-cut can ask for any provider per job, and BiRefNet loads 3.5GB of
+    weights on first use; building a fresh one per job would pay that load
+    on every cut.
+    """
+    chosen = (name or config.CUTOUT_PROVIDER).lower()
+    if chosen not in _instances:
+        _instances[chosen] = _build(chosen)
+    return _instances[chosen]
+
+
+def _build(chosen: str) -> CutoutProvider:
     if chosen == "chroma":
         from .chroma import ChromaKeyProvider
 

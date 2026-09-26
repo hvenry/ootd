@@ -45,7 +45,7 @@
   --item-aside-top: 38vh;
   /* How much of a phone screen the measured photograph may take, leaving the
      reading above it and the buttons below it on screen at once. */
-  --measure-photo-h: 50dvh;
+  --measure-photo-h: 60dvh;
 }
 
 @media (min-width: 768px) {
@@ -301,21 +301,56 @@
     cursor: not-allowed;
   }
 
-  /* Filled button plus the text that dismisses it. Capped and centred on a
-     phone so the button is not a full-width bar; from sm it fills its
-     column, as a product page does. */
+  /* Filled button plus the text that dismisses it. From sm the button
+     fills its column and the text sits beside it, as a product page does. */
   .action-row {
     display: flex;
     align-items: center;
     gap: 1.5rem;
-    max-width: 24rem;
-    margin-inline: auto;
   }
 
-  @media (min-width: 640px) {
+  /* On a phone the two split the row evenly, capped and centred so the
+     button is not a full-width bar. A grid, because flex-1 on both shares
+     out only the space left after padding, and the padded button always
+     won. Bare text cannot show that it owns half a row, so here the second
+     control takes the unfilled button's outline and fills its half; and the
+     filled button drops its 2.5rem sides, which half a row cannot carry
+     without "Update measurements" wrapping. */
+  @media (max-width: 639.98px) {
     .action-row {
-      max-width: none;
-      margin-inline: 0;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      align-items: stretch;
+      gap: 0.75rem;
+      max-width: 24rem;
+      margin-inline: auto;
+    }
+
+    .action-row > * {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .action-row > .btn-primary {
+      padding-inline: 0.5rem;
+    }
+
+    .action-row > :not(.btn-primary) {
+      border: 1px solid var(--fg);
+      color: var(--fg);
+      text-decoration: none;
+    }
+
+    .action-row > :not(.btn-primary):not(:disabled):hover {
+      background: var(--fg);
+      color: var(--bg);
+    }
+
+    .action-row > :not(.btn-primary):disabled {
+      color: var(--fg3);
+      border-color: var(--rule);
     }
   }
 
@@ -447,6 +482,36 @@
     border-bottom-color: currentColor;
   }
 
+  /* A toast arrives by position and opacity only, per the motion rule. */
+  .toast {
+    animation: toast-in 160ms ease-out;
+  }
+
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toast {
+      animation: none;
+    }
+  }
+
+  /* The measure screen's photo frame: the screen's share for the photo on
+     a phone, the whole height under the header beside the panel. */
+  .measure-frame {
+    --photo-max-h: var(--measure-photo-h);
+  }
+
+  @media (min-width: 768px) {
+    .measure-frame {
+      --photo-max-h: calc(100dvh - var(--header-h) - var(--screen-gap));
+    }
+  }
+
   /* The garment diagram. Hovering a dimension lifts its line to full
      strength and solid, and inverts its figure: black box, white text, no
      halo. So the number and the line it measures read as one thing. */
@@ -458,28 +523,47 @@
     opacity: 0;
   }
 
-  /* Selected (data-active) looks the same as hovered, and stays. */
-  .schematic-dim:hover .schematic-dim-box,
+  /* Selected (data-active) looks the same as hovered, and stays. Hover is
+     only for a pointer that can hover: a phone leaves :hover stuck on the
+     last line tapped, so deselecting one left its black box standing. */
   .schematic-dim[data-active] .schematic-dim-box {
     opacity: 1;
   }
 
-  .schematic-dim:hover .schematic-dim-line,
   .schematic-dim[data-active] .schematic-dim-line {
     stroke: var(--fg);
     stroke-dasharray: none;
   }
 
-  .schematic-dim:hover .schematic-dim-value,
   .schematic-dim[data-active] .schematic-dim-value {
     fill: var(--bg);
     stroke: none;
   }
 
-  .schematic-dim:hover .schematic-dim-end,
   .schematic-dim[data-active] .schematic-dim-end {
     fill: var(--fg);
     stroke: var(--fg);
+  }
+
+  @media (hover: hover) {
+    .schematic-dim:hover .schematic-dim-box {
+      opacity: 1;
+    }
+
+    .schematic-dim:hover .schematic-dim-line {
+      stroke: var(--fg);
+      stroke-dasharray: none;
+    }
+
+    .schematic-dim:hover .schematic-dim-value {
+      fill: var(--bg);
+      stroke: none;
+    }
+
+    .schematic-dim:hover .schematic-dim-end {
+      fill: var(--fg);
+      stroke: var(--fg);
+    }
   }
 
   /* Section rules are hairlines like everything else. A full-strength --fg

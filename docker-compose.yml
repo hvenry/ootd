@@ -1,3 +1,11 @@
+#   docker compose up -d --build      everything: db, migrations, app, worker
+#   docker compose up -d db           postgres only, for `pnpm dev` + a local worker
+#
+# The app is on :3000, and from a phone on the same network at the Mac's LAN
+# address (`ipconfig getifaddr en0`). Settings come from .env; the lines
+# under `environment:` override the ones in it that only make sense outside
+# a container.
+
 services:
   db:
     image: postgres:17-alpine
@@ -17,21 +25,70 @@ services:
       timeout: 5s
       retries: 10
 
-  worker:
-    build: ./worker
-    restart: unless-stopped
+  # Applies any pending migrations, then exits. The app waits for it, so a
+  # schema change pulled with the code is in place before anything reads it.
+  migrate:
+    build:
+      context: .
+      target: builder
+      args: &next-public
+        NEXT_PUBLIC_SHEET_TOP_MM: ${NEXT_PUBLIC_SHEET_TOP_MM:-}
+        NEXT_PUBLIC_SHEET_RIGHT_MM: ${NEXT_PUBLIC_SHEET_RIGHT_MM:-}
+        NEXT_PUBLIC_SHEET_BOTTOM_MM: ${NEXT_PUBLIC_SHEET_BOTTOM_MM:-}
+        NEXT_PUBLIC_SHEET_LEFT_MM: ${NEXT_PUBLIC_SHEET_LEFT_MM:-}
+        NEXT_PUBLIC_SHEET_DIAG_MM: ${NEXT_PUBLIC_SHEET_DIAG_MM:-}
+        NEXT_PUBLIC_SHEET_DIAG2_MM: ${NEXT_PUBLIC_SHEET_DIAG2_MM:-}
+        NEXT_PUBLIC_SHEET_BLACK_SQUARE_MM: ${NEXT_PUBLIC_SHEET_BLACK_SQUARE_MM:-}
+    command: ["pnpm", "db:migrate"]
+    environment:
+      DATABASE_URL: postgres://ootd:ootd@db:5432/ootd
     depends_on:
       db:
         condition: service_healthy
+    restart: "no"
+
+  app:
+    build:
+      context: .
+      args: *next-public
+    restart: unless-stopped
+    env_file: .env
     environment:
       DATABASE_URL: postgres://ootd:ootd@db:5432/ootd
-      CUTOUT_PROVIDER: ${CUTOUT_PROVIDER:-local}
+      STORAGE_ROOT: /storage
+      # For the status page's worker health check.
+      WORKER_URL: http://worker:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./storage:/storage
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build:
+      context: ./worker
+      # BiRefNet, so "Bad cut? Try BiRefNet" has something to run. Docker on
+      # a Mac has no GPU, so it runs on the CPU: seconds a garment, not
+      # milliseconds, which is fine for a re-cut. Weights (~3.5GB) download on
+      # the first BiRefNet job and are kept in the hfcache volume.
+      args:
+        EXTRAS: "[local]"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://ootd:ootd@db:5432/ootd
       STORAGE_ROOT: /storage
       HF_HOME: /hf-cache
     volumes:
       - ./storage:/storage
       - hfcache:/hf-cache
-    profiles: ["worker"]
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   pgdata:

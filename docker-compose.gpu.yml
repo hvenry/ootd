@@ -1,0 +1,22 @@
+# The homelab's NVIDIA GPU for the worker. Layer it over the base file:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
+#
+# Needs the NVIDIA driver (525+) and nvidia-container-toolkit on the host.
+# BiRefNet then runs on CUDA in half precision: well under a second a cut on
+# a 3070, against ~35 s on CPU. `/status` shows the difference in each job's
+# duration; the worker log says "model ready on cuda" on the first cut.
+services:
+  worker:
+    build:
+      args:
+        EXTRAS: "[local]"
+        # CUDA 12.6 wheels: bundle their own runtime, need only the driver.
+        TORCH_INDEX: https://download.pytorch.org/whl/cu126
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]

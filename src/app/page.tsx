@@ -5,6 +5,7 @@ import { Suspense } from "react";
 
 import { ClosetBrowser, type ClosetItem } from "@/components/closet-browser";
 import { UnfinishedCaptures } from "@/components/unfinished-captures";
+import { unmeasuredGarments } from "@/lib/measure-queue";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { tilePathFor } from "@/lib/storage";
@@ -14,14 +15,14 @@ import type { Category } from "@/lib/measure/templates";
 /**
  * The closet reads the database on every request. Without this Next
  * prerenders it at build time and the grid silently freezes at whatever was
- * in the database when the image was built. Phase 2 makes this moot: reading
- * the session for `owner_id` is itself a dynamic API.
+ * in the database when the image was built. Auth, when it comes, makes this
+ * moot: reading the session for `owner_id` is itself a dynamic API.
  */
 export const dynamic = "force-dynamic";
 
 export default async function ClosetPage() {
-  // The closet is what you own. A capture becomes that when its
-  // measurements are submitted, not when its first photograph lands.
+  // The closet is what you own. A capture becomes that once both faces are
+  // photographed and it is added; measuring can follow later.
   const garments = await db
     .select()
     .from(garment)
@@ -107,6 +108,9 @@ export default async function ClosetPage() {
     }
   }
 
+  const toMeasure = await unmeasuredGarments(OWNER_ID);
+  const unmeasured = new Set(toMeasure.map((g) => g.id));
+
   const cards: ClosetItem[] = garments.map((item) => ({
     id: item.id,
     shortId: item.shortId,
@@ -118,16 +122,34 @@ export default async function ClosetPage() {
     tilePath: item.cutoutPath ? tilePathFor(item.cutoutPath) : null,
     backTilePath: backTiles.get(item.id) ?? null,
     cutFailed: cutFailed.has(item.id),
+    measured: !unmeasured.has(item.id),
     createdAt: item.createdAt.toISOString(),
   }));
 
   return (
     <div>
+      {/* The prompt to measure: one line, above the grid, until the queue is
+          empty. Start walks the queue oldest first, one garment after
+          another, back to the closet at the end. */}
+      {toMeasure.length > 0 ? (
+        <div className="border-rule mb-6 flex items-baseline justify-between gap-4 border-b pb-3">
+          <p className="text-12">
+            <span className="data">{toMeasure.length}</span>{" "}
+            {toMeasure.length === 1 ? "garment" : "garments"} to measure
+          </p>
+          <Link
+            href={`/measure/${toMeasure[0].id}?next=queue`}
+            className="label link-text"
+          >
+            Start
+          </Link>
+        </div>
+      ) : null}
       {garments.length === 0 ? (
         <div className={unfinished.length > 0 ? "py-10" : "py-24"}>
           <p className="max-w-md font-serif text-24 leading-tight">
             {unfinished.length > 0
-              ? "Nothing archived yet, but there is a capture waiting to be measured."
+              ? "Nothing archived yet, but there is a capture waiting to be finished."
               : "Nothing archived yet. Photograph a garment against the sheet and it appears here with a number you can subtract."}
           </p>
           <Link href="/capture" className="chip mt-8 inline-flex">

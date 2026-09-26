@@ -44,7 +44,7 @@ export async function saveMeasurements(input: {
   /** The photo the handles were placed on. */
   photoId: string;
   rows: MeasurementInput[];
-}) {
+}): Promise<{ added: boolean }> {
   const rows = input.rows.map((row) => {
     const valueMm = Math.round(row.valueMm);
     if (!Number.isFinite(valueMm) || valueMm <= 0) {
@@ -52,7 +52,7 @@ export async function saveMeasurements(input: {
     }
     return { ...row, valueMm };
   });
-  if (rows.length === 0) return;
+  if (rows.length === 0) return { added: false };
 
   const [owned] = await db
     .select({ id: garment.id })
@@ -60,7 +60,8 @@ export async function saveMeasurements(input: {
     .where(and(eq(garment.id, input.garmentId), eq(garment.ownerId, OWNER_ID)));
   if (!owned) throw new Error("No such garment");
 
-  await db.transaction(async (tx) => {
+  // Whether this submission is the one that puts the garment in the closet.
+  const added = await db.transaction(async (tx) => {
     for (const row of rows) {
       await tx
         .insert(measurement)
@@ -95,10 +96,10 @@ export async function saveMeasurements(input: {
         });
     }
 
-    // The submission is what turns a capture into a garment. Set once, on
-    // the first one, so the date means "when this entered the closet" rather
-    // than "when it was last corrected".
-    await tx
+    // Normally finishCapture already put the garment in the closet. This
+    // catches one measured before that ran; set once, so the date stays
+    // "when this entered the closet".
+    const completed = await tx
       .update(garment)
       .set({ completedAt: new Date() })
       .where(
@@ -107,12 +108,58 @@ export async function saveMeasurements(input: {
           eq(garment.ownerId, OWNER_ID),
           isNull(garment.completedAt),
         ),
-      );
+      )
+      .returning({ id: garment.id });
+    return completed.length > 0;
   });
 
   revalidatePath("/");
   revalidatePath(`/measure/${input.garmentId}`);
   revalidatePath(`/item/${input.garmentId}`);
+  return { added };
+}
+
+/**
+ * Put a captured garment in the closet: both faces are photographed, so it is
+ * something you own, whether or not it has been measured yet.
+ *
+ * Measuring used to be the gate, and with a cutout taking half a minute that
+ * made adding a garment a wait. Now the photographs are the gate: the cutouts
+ * carry on in the background and measuring is prompted for later. It still
+ * has to happen before a garment is standardised.
+ *
+ * A no-op until both faces exist, so it is safe to call after any photo.
+ */
+export async function finishCapture(
+  garmentId: string,
+): Promise<{ added: boolean }> {
+  const faces = await db
+    .select({ view: photo.view })
+    .from(photo)
+    .where(
+      and(
+        eq(photo.garmentId, garmentId),
+        eq(photo.ownerId, OWNER_ID),
+        inArray(photo.view, ["front", "back"]),
+      ),
+    );
+  if (faces.length < 2) return { added: false };
+
+  const updated = await db
+    .update(garment)
+    .set({ completedAt: new Date() })
+    .where(
+      and(
+        eq(garment.id, garmentId),
+        eq(garment.ownerId, OWNER_ID),
+        isNull(garment.completedAt),
+      ),
+    )
+    .returning({ id: garment.id });
+
+  revalidatePath("/");
+  revalidatePath(`/item/${garmentId}`);
+  return { added: updated.length > 0 };
 }
 
 /**
@@ -274,4 +321,26 @@ export async function updateGarmentDetails(
   revalidatePath(`/item/${garmentId}`);
 
   return { droppedKeys };
+}
+
+/**
+ * Remove one close-up. Only details: a front or back is replaced by
+ * reshooting it, never removed, because the measure screen needs both.
+ */
+export async function deleteDetailPhoto(photoId: string) {
+  const [row] = await db
+    .delete(photo)
+    .where(
+      and(
+        eq(photo.id, photoId),
+        eq(photo.ownerId, OWNER_ID),
+        eq(photo.view, "detail"),
+      ),
+    )
+    .returning({ garmentId: photo.garmentId, originalPath: photo.originalPath });
+  if (!row) throw new Error("No such detail photo");
+
+  await rm(absolutePath(row.originalPath), { force: true });
+
+  if (row.garmentId) revalidatePath(`/item/${row.garmentId}`);
 }

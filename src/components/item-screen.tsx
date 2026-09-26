@@ -2,22 +2,51 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 import { GarmentDetails } from "@/components/garment-details";
 import { GarmentSchematic } from "@/components/garment-schematic";
 import { PhotoStrip } from "@/components/photo-strip";
+import { useActivity } from "@/components/activity";
+import { deleteDetailPhoto } from "@/app/actions";
+import type { KnownBrand } from "@/lib/search/brands";
 import { useDisplayUnit } from "@/lib/units/preference";
 import { declaredHex } from "@/lib/colour/declared";
 import {
   CATEGORY_LABELS,
+  DETAIL_KIND_LABELS,
   type Category,
+  type DetailKind,
   type Dimension,
   type MeasurementKey,
   type PhotoView,
   type Silhouette,
 } from "@/lib/measure/templates";
 
-type ItemPhoto = { id: string; view: PhotoView; src: string; fallback: string };
+type ItemPhoto = {
+  id: string;
+  view: PhotoView;
+  detailKind: DetailKind | null;
+  src: string;
+  fallback: string;
+};
+
+/**
+ * The pager's word for each photo. Two details of one kind are numbered,
+ * since "Fabric Fabric" under the strip says nothing about which is which.
+ */
+function photoLabels(photos: ItemPhoto[]): string[] {
+  const seen = new Map<string, number>();
+  return photos.map((p) => {
+    if (p.view === "front") return "Front";
+    if (p.view === "back") return "Back";
+    const base = DETAIL_KIND_LABELS[p.detailKind ?? "other"];
+    const total = photos.filter((q) => q.detailKind === p.detailKind).length;
+    const n = (seen.get(base) ?? 0) + 1;
+    seen.set(base, n);
+    return total > 1 ? `${base} ${n}` : base;
+  });
+}
 
 /**
  * View mode.
@@ -33,7 +62,9 @@ export function ItemScreen({
   dimensions,
   silhouette,
   values,
+  brands,
 }: {
+  brands: KnownBrand[];
   garment: {
     id: string;
     shortId: number;
@@ -47,7 +78,24 @@ export function ItemScreen({
   silhouette: Silhouette | null;
   values: Record<string, number | undefined>;
 }) {
+  const router = useRouter();
+  const { toast } = useActivity();
   const [index, setIndex] = useState(0);
+  const labels = photoLabels(photos);
+  const shown = photos[Math.min(index, photos.length - 1)];
+  const [removing, setRemoving] = useState(false);
+
+  async function onRemoveDetail(id: string) {
+    setRemoving(true);
+    try {
+      await deleteDetailPhoto(id);
+      toast({ message: "Detail removed" });
+      setIndex((i) => Math.max(0, i - 1));
+      router.refresh();
+    } finally {
+      setRemoving(false);
+    }
+  }
 
   const measured = dimensions.filter((d) => values[d.key] != null);
   const measuredKeys = measured.map((d) => d.key) as MeasurementKey[];
@@ -194,6 +242,7 @@ export function ItemScreen({
       declaredColour={garment.declaredColour}
       shortId={garment.shortId}
       measuredKeys={measuredKeys}
+      brands={brands}
       onClose={() => setDetails(false)}
     />
   );
@@ -210,11 +259,11 @@ export function ItemScreen({
           what the pager leaves, so the page does not scroll. */}
       <div className="flex flex-col lg:col-start-2 lg:row-start-1 lg:h-[calc(100dvh-var(--header-h)-var(--main-pb))]">
         <PhotoStrip
-          photos={photos.map((p) => ({
+          photos={photos.map((p, i) => ({
             id: p.id,
             src: p.src,
             fallback: p.fallback,
-            alt: p.view === "front" ? "Front" : "Back",
+            alt: labels[i],
           }))}
           index={index}
           onIndexChange={setIndex}
@@ -223,7 +272,7 @@ export function ItemScreen({
         />
 
         {photos.length > 1 ? (
-          <div className="mt-4 flex shrink-0 justify-center gap-6">
+          <div className="mt-4 flex shrink-0 flex-wrap justify-center gap-x-6 gap-y-2">
             {photos.map((p, i) => (
               <button
                 key={p.id}
@@ -232,11 +281,33 @@ export function ItemScreen({
                 aria-pressed={index === i}
                 className="label tab"
               >
-                {p.view === "front" ? "Front" : "Back"}
+                {labels[i]}
               </button>
             ))}
           </div>
         ) : null}
+
+        {/* A close-up can go, and another can be added. Re-cutting is not
+            offered here: the cutout is an internal step, and the measure
+            screen is where a bad one gets in the way. */}
+        <div className="mt-3 flex shrink-0 items-baseline justify-center gap-6 text-12">
+          {shown?.view === "detail" ? (
+            <button
+              type="button"
+              className="link-text text-fg3"
+              disabled={removing}
+              onClick={() => onRemoveDetail(shown.id)}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </button>
+          ) : null}
+          <Link
+            href={`/capture?garment=${garment.id}&view=detail`}
+            className="link-text text-fg3"
+          >
+            Add detail
+          </Link>
+        </div>
       </div>
 
       {/* Desktop only: brand and name on the left of the photo. */}

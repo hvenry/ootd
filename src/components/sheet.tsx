@@ -15,6 +15,7 @@ export function Sheet({
   open,
   title,
   onClose,
+  closeLabel = "Cancel",
   footer,
   className = "",
   children,
@@ -23,6 +24,11 @@ export function Sheet({
   /** Centred in the chrome, and the accessible name of the dialog. */
   title: string;
   onClose: () => void;
+  /**
+   * The word on the way out. Cancel where the sheet holds choices being
+   * made; Close where there is nothing to call off, as in the menu.
+   */
+  closeLabel?: string;
   footer?: React.ReactNode;
   className?: string;
   children: React.ReactNode;
@@ -52,7 +58,7 @@ export function Sheet({
           className="label cursor-pointer text-left"
           onClick={onClose}
         >
-          Cancel
+          {closeLabel}
         </button>
         <span className="label text-fg3 text-center">{title}</span>
       </div>

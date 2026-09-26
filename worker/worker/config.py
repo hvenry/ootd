@@ -59,6 +59,6 @@ CUTOUT_PROVIDER = os.environ.get("CUTOUT_PROVIDER", "chroma")
 POLL_INTERVAL_SECONDS = float(os.environ.get("POLL_INTERVAL_SECONDS", "2"))
 MAX_ATTEMPTS = int(os.environ.get("MAX_ATTEMPTS", "3"))
 
-# Phase 0 does cutouts and nothing else. colour_extract is Phase 1, render is
-# Phase 4 and is a hosted HTTPS call — no generative model ever runs here.
+# Cutouts only, for now. Standardisation and outfit images are next, and they
+# call a hosted model: no generative model runs in this container.
 HANDLED_KINDS = ("cutout",)

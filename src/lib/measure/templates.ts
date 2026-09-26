@@ -1,6 +1,7 @@
 import type {
   categoryEnum,
   conventionEnum,
+  detailKindEnum,
   layerSlotEnum,
   measurementKeyEnum,
   photoViewEnum,
@@ -11,6 +12,17 @@ export type MeasurementKey = (typeof measurementKeyEnum.enumValues)[number];
 export type Convention = (typeof conventionEnum.enumValues)[number];
 export type LayerSlot = (typeof layerSlotEnum.enumValues)[number];
 export type PhotoView = (typeof photoViewEnum.enumValues)[number];
+export type DetailKind = (typeof detailKindEnum.enumValues)[number];
+
+/** In the order they are offered at capture: the label is the one that pays. */
+export const DETAIL_KIND_LABELS: Record<DetailKind, string> = {
+  label: "Care label",
+  fabric: "Fabric",
+  print: "Print",
+  hardware: "Hardware",
+  other: "Other",
+};
+export const DETAIL_KINDS = Object.keys(DETAIL_KIND_LABELS) as DetailKind[];
 
 /**
  * How to seed the two handles from the cutout mask before the user touches

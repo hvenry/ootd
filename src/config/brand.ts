@@ -5,7 +5,7 @@
 export const BRAND = "OOTD" as const;
 
 /**
- * Single hardcoded owner for Phase 0. Better Auth arrives in Phase 2 and this
+ * Single hardcoded owner while there is one user. When Better Auth arrives this
  * becomes the session's user id — every query already filters on it, so that
  * swap touches this constant and the session lookup, nothing else.
  */

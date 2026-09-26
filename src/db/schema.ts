@@ -1,6 +1,7 @@
 import {
   type AnyPgColumn,
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -10,11 +11,13 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /**
- * Phase 0 schema: garment, measurement, photo, job.
+ * Schema: garment, measurement, photo, job. Planned tables: docs/DATA-MODEL.md.
  *
  * Two rules from CLAUDE.md are enforced structurally here rather than by
  * convention, because violating either produces wrong numbers that nobody
@@ -130,6 +133,21 @@ export const measurementSourceEnum = pgEnum("measurement_source", [
  */
 export const photoViewEnum = pgEnum("photo_view", ["front", "back", "detail"]);
 
+/**
+ * What a detail photo is a close-up of. Only detail photos carry one.
+ *
+ * A detail is shot off the rig, close enough to read: the care label's fibre
+ * content, the weave, a print or embroidery, a button or zip. It is context
+ * for the render and, later, for the clo estimate — never a measuring surface.
+ */
+export const detailKindEnum = pgEnum("detail_kind", [
+  "label",
+  "fabric",
+  "print",
+  "hardware",
+  "other",
+]);
+
 export const jobKindEnum = pgEnum("job_kind", [
   "cutout",
   "colour_extract",
@@ -163,12 +181,31 @@ export const photo = pgTable(
       onDelete: "cascade",
     }),
     view: photoViewEnum().notNull().default("front"),
+    detailKind: detailKindEnum(),
     /** Kept forever, so the whole closet can be re-cut with a better model later. */
     originalPath: text().notNull(),
-    /** { m: number[9] (row-major 3x3, image px -> canvas px), pxPerMm: number } */
-    homography: jsonb().notNull(),
+    /**
+     * { m: number[9] (row-major 3x3, image px -> canvas px), pxPerMm: number }
+     *
+     * Null only on a detail photo. A close-up is shot too near for the
+     * markers to be in frame, and a detail with a fabricated scale would be
+     * a measuring surface that measures nothing correctly.
+     */
+    homography: jsonb(),
     /** Background-removed PNG for *this* view. */
     cutoutPath: text(),
+    /**
+     * Which CUTOUT_PROVIDER produced `cutout_path`. Null for cutouts made
+     * before this was recorded, which came from the configured default.
+     */
+    cutoutProvider: text(),
+    /**
+     * The garment's box inside the cutout, in the original's pixels:
+     * { x, y, w, h, imageW, imageH }. Written with the cutout, so the measure
+     * screen can open already cropped to the garment instead of showing the
+     * whole frame until the PNG has downloaded and been read.
+     */
+    cutoutBounds: jsonb(),
     /** From configuration, or the reserved ArUco IDs on a rig that prints them. */
     sheetVersion: integer().notNull().default(0),
     /** sRGB triple off the neutral patch, for white balance. Null if out of frame. */
@@ -176,8 +213,19 @@ export const photo = pgTable(
     takenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
-    // One photo per view per garment: reshooting the back replaces it.
-    unique("photo_garment_view").on(t.garmentId, t.view),
+    // One front and one back per garment: reshooting either replaces it.
+    // Details are as many as the garment has worth reading.
+    uniqueIndex("photo_garment_view")
+      .on(t.garmentId, t.view)
+      .where(sql`${t.view} <> 'detail'`),
+    check(
+      "photo_measurable_view",
+      sql`${t.view} = 'detail' OR ${t.homography} IS NOT NULL`,
+    ),
+    check(
+      "photo_detail_kind",
+      sql`(${t.view} = 'detail') = (${t.detailKind} IS NOT NULL)`,
+    ),
     index("photo_owner_garment").on(t.ownerId, t.garmentId),
   ],
 );
@@ -297,6 +345,7 @@ export const job = pgTable(
 );
 
 export type PhotoView = (typeof photoViewEnum.enumValues)[number];
+export type DetailKind = (typeof detailKindEnum.enumValues)[number];
 export type Garment = typeof garment.$inferSelect;
 export type Measurement = typeof measurement.$inferSelect;
 export type Photo = typeof photo.$inferSelect;

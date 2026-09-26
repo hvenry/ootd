@@ -26,6 +26,8 @@ export type ClosetItem = {
   backTilePath: string | null;
   /** The cutout job was refused, rather than still running. */
   cutFailed: boolean;
+  /** Has at least one measurement. Unmeasured garments say so on the tile. */
+  measured: boolean;
   createdAt: string;
 };
 
@@ -433,6 +435,7 @@ function Grid({
               <p className="text-fg2">{item.name ?? "Untitled"}</p>
               <p className="data text-fg3 mt-1">
                 {String(item.shortId).padStart(3, "0")}
+                {item.measured ? null : " · to measure"}
               </p>
             </div>
           </Link>
