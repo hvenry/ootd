@@ -31,5 +31,6 @@ storage/
 
 # typescript incremental build cache
 *.tsbuildinfo
-CLAUDE.md
-docs/
+
+# third-party reference material
+docs/reference/
