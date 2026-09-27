@@ -7,16 +7,17 @@ newer) and `nvidia-container-toolkit`.
 
 ```bash
 git clone <repo> ootd && cd ootd
-cp .env.example .env     # set the rig spans, and FAL_KEY for generation
+cp .env.example .env     # FAL_KEY for generation; the rig goes in Settings
 docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d --build
 ```
 
 Open `http://<homelab-ip>:3000` on the phone. On the first cut the worker log
 says `model ready on cuda`, and `/status` shows each cut's duration.
 
-- **Rig spans:** measure the four sides and a diagonal, centre to centre, into
-  `.env`. They are baked into the app at build time, so rebuild after changing
-  them. A "Rig check" warning on the capture screen means a span is wrong.
+- **Rig spans:** measure the four sides and a diagonal, centre to centre, and
+  enter them in Settings. They take effect on the next photo, with no rebuild.
+  Until they are saved there, the `NEXT_PUBLIC_SHEET_*` values in `.env` are
+  used. A "Rig check" warning on the capture screen means a span is wrong.
 - **File ownership:** the app and worker both run as UID 1000 and share
   `./storage`. If the owner of `storage/` is another user, build with
   `--build-arg UID=$(id -u) --build-arg GID=$(id -g)`.

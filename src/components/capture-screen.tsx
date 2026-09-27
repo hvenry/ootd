@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { finishCapture } from "@/app/actions";
@@ -16,8 +17,10 @@ import {
 } from "@/lib/homography/aruco";
 import {
   quadCheckMm,
+  RIG_TOLERANCE_MM,
   SHEET_VERSION,
   sheetCanvasSize,
+  type Rig,
 } from "@/lib/homography/sheet";
 import { fileToCanvas, renderWarpPreview } from "@/lib/homography/warp";
 import { silhouetteFor, type PhotoView } from "@/lib/measure/templates";
@@ -36,16 +39,20 @@ const PREVIEW_MAX_PX = 900;
 /** Both previews sit in the same box, so the two agree by construction. */
 const PREVIEW_CLASS = "block h-auto max-h-[70vh] w-full object-contain";
 
-/** Above this the two diagonals disagree by more than any rig should. */
-const RIG_TOLERANCE_MM = 5;
-
 const VIEW_LABELS: Record<PhotoView, string> = {
   front: "Front",
   back: "Back",
   detail: "Detail",
 };
 
-export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
+export function CaptureScreen({
+  brands,
+  rig,
+}: {
+  brands: KnownBrand[];
+  /** Read per request from Settings, so a re-measured rig needs no rebuild. */
+  rig: Rig;
+}) {
   const router = useRouter();
   const { toast } = useActivity();
   // With ?garment=&view= this shoots one more view of a garment that already
@@ -65,9 +72,8 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
     !singleView ? "details" : requestedView === "detail" ? "closeups" : "shoot",
   );
   const [draft, setDraft] = useState<GarmentDraft>({
-    // Opens on tops, short sleeve: the types are showing from the start.
+    // Opens on tops: the types are showing from the start.
     group: "top",
-    topType: "top",
     colour: "",
     category: null,
     brand: "",
@@ -136,7 +142,7 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
     const host = previewHostRef.current;
     const source = sourceRef.current;
     if (!detection || !host || !source) return;
-    const { width, height } = sheetCanvasSize();
+    const { width, height } = sheetCanvasSize(rig);
     const preview = renderWarpPreview(
       source,
       detection.homography,
@@ -145,7 +151,7 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
     );
     preview.className = PREVIEW_CLASS;
     host.replaceChildren(preview);
-  }, [detection]);
+  }, [detection, rig]);
 
   /**
    * Drop everything belonging to the photograph just dealt with.
@@ -196,7 +202,7 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
       // Yield once so the frame paints before the detector blocks the thread.
       await new Promise((r) => setTimeout(r, 0));
 
-      const result = detectSheet(canvas);
+      const result = detectSheet(canvas, rig);
       if (isDetectionFailure(result)) {
         setMode("failed");
         setMessage(
@@ -330,7 +336,7 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
 
   // The two diagonals have to agree. If they do not, one of the six numbers
   // in the environment is wrong, and every measurement inherits it silently.
-  const rigResidual = quadCheckMm();
+  const rigResidual = quadCheckMm(rig.quad);
 
   // Trousers lay out differently from a shirt, so the guide follows the
   // category instead of always drawing a top.
@@ -364,8 +370,12 @@ export function CaptureScreen({ brands }: { brands: KnownBrand[] }) {
       {rigResidual !== null && rigResidual > RIG_TOLERANCE_MM ? (
         <p className="text-fg mb-6 text-12">
           Rig check: the two diagonals disagree by {rigResidual.toFixed(0)}
-          &nbsp;mm. One of the six span numbers is wrong. Re-measure before
-          shooting.
+          &nbsp;mm. One of the six span numbers is wrong. Re-measure and fix it
+          in{" "}
+          <Link href="/settings" className="link-text">
+            Settings
+          </Link>{" "}
+          before shooting.
         </p>
       ) : null}
 

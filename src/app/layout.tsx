@@ -56,10 +56,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${grotesque.variable} ${serifEditorial.variable} ${monoData.variable} bg-bg text-fg`}
-      >
+    // The font variables sit on <html> because the theme's --font-* stacks
+    // are declared on :root, and a var() there resolves against :root.
+    <html
+      lang="en"
+      className={`${grotesque.variable} ${serifEditorial.variable} ${monoData.variable}`}
+    >
+      <body className="bg-bg text-fg">
         <ActivityProvider>
           <Nav />
           <main className="px-gutter pt-(--header-h) pb-(--main-pb)">

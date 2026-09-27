@@ -433,10 +433,10 @@ export type Silhouette = "top" | "long_top" | "vest" | "bottom" | "shorts";
  * Which shape each category is measured as — and the reason this is a
  * `Record` over every category rather than two arrays.
  *
- * Sleeve length is part of the name wherever a garment comes in both
- * (henley and short sleeve henley, shirt and short sleeve shirt), because it
- * decides the drawing and where the sleeve pin starts. A long-sleeve henley
- * measured as a short-sleeve top seeds pit to pit cuff to cuff.
+ * The shape decides the drawing and where the sleeve pin starts, not the
+ * numbers: every sleeved top stores the same four. So a button-up is drawn
+ * long-sleeved whether or not it is, and a short-sleeve one is measured by
+ * dragging the sleeve pin up from the cuff it was seeded at.
  *
  * A polo, a henley and an oxford take the same four numbers from the same
  * four points as a t-shirt. The categories exist so the closet can be
@@ -452,33 +452,22 @@ export type Silhouette = "top" | "long_top" | "vest" | "bottom" | "shorts";
 const SILHOUETTE_BY_CATEGORY: Record<Category, Silhouette | null> = {
   tshirt: "top",
   polo: "top",
-  short_sleeve_henley: "top",
-  short_sleeve_shirt: "top",
   long_sleeve: "long_top",
-  henley: "long_top",
   shirt: "long_top",
-  overshirt: "long_top",
-  turtleneck: "long_top",
   sweater: "long_top",
-  crewneck: "long_top",
-  hoodie: "long_top",
-  fleece: "long_top",
-  cardigan: "long_top",
+  sweatshirt: "long_top",
   tank: "vest",
-  vest: "vest",
-  shell: "long_top",
-  chore_jacket: "long_top",
+  overshirt: "long_top",
+  light_jacket: "long_top",
+  heavy_jacket: "long_top",
   denim_jacket: "long_top",
   leather_jacket: "long_top",
   blazer: "long_top",
-  coat: "long_top",
-  parka: "long_top",
-  puffer_vest: "vest",
-  trousers: "bottom",
+  vest: "vest",
+  pants: "bottom",
   jeans: "bottom",
   sweatpants: "bottom",
   shorts: "shorts",
-  sweat_shorts: "shorts",
   // Sized, never measured: a labelled size is the whole record for these.
   shoe: null,
   hat: null,
@@ -505,33 +494,22 @@ export const GROUP_LABELS: Record<Group, string> = {
 const GROUP_BY_CATEGORY: Record<Category, Group | null> = {
   tshirt: "top",
   polo: "top",
-  short_sleeve_henley: "top",
-  short_sleeve_shirt: "top",
   long_sleeve: "top",
-  henley: "top",
   shirt: "top",
-  overshirt: "outerwear",
-  turtleneck: "top",
   sweater: "top",
-  crewneck: "top",
-  hoodie: "top",
-  fleece: "outerwear",
-  cardigan: "top",
+  sweatshirt: "top",
   tank: "top",
-  vest: "top",
-  shell: "outerwear",
-  chore_jacket: "outerwear",
+  overshirt: "outerwear",
+  light_jacket: "outerwear",
+  heavy_jacket: "outerwear",
   denim_jacket: "outerwear",
   leather_jacket: "outerwear",
   blazer: "outerwear",
-  coat: "outerwear",
-  parka: "outerwear",
-  puffer_vest: "top",
-  trousers: "bottom",
+  vest: "outerwear",
+  pants: "bottom",
   jeans: "bottom",
   sweatpants: "bottom",
   shorts: "bottom",
-  sweat_shorts: "bottom",
   shoe: null,
   hat: null,
 };
@@ -540,19 +518,10 @@ export function groupFor(category: Category): Group | null {
   return GROUP_BY_CATEGORY[category];
 }
 
-/** Tops split by sleeve, which is to say by the shape they are measured as. */
-export const TOP_TYPES: { silhouette: Silhouette; label: string }[] = [
-  { silhouette: "top", label: "Short sleeve" },
-  { silhouette: "long_top", label: "Long sleeve" },
-  { silhouette: "vest", label: "Sleeveless" },
-];
-
-/** Every category in a group, optionally narrowed to one shape, in list order. */
-export function categoriesIn(group: Group, silhouette?: Silhouette): Category[] {
+/** Every category in a group, in list order. */
+export function categoriesIn(group: Group): Category[] {
   return (Object.keys(CATEGORY_LABELS) as Category[]).filter(
-    (c) =>
-      GROUP_BY_CATEGORY[c] === group &&
-      (silhouette === undefined || SILHOUETTE_BY_CATEGORY[c] === silhouette),
+    (c) => GROUP_BY_CATEGORY[c] === group,
   );
 }
 
@@ -574,7 +543,7 @@ export function templateFor(category: Category): Dimension[] {
   }
 }
 
-/** Trousers and shorts are one group to the closet and the add flow. */
+/** Pants and shorts are one group to the closet and the add flow. */
 export function isBottomSilhouette(silhouette: Silhouette | null): boolean {
   return silhouette === "bottom" || silhouette === "shorts";
 }
@@ -622,70 +591,50 @@ export function governingKey(category: Category): MeasurementKey | null {
 export const DEFAULT_LAYER_SLOT: Record<Category, LayerSlot> = {
   tshirt: "base",
   polo: "base",
-  henley: "base",
-  short_sleeve_henley: "base",
   long_sleeve: "base",
   tank: "base",
   shirt: "mid",
-  short_sleeve_shirt: "mid",
-  overshirt: "mid",
-  turtleneck: "mid",
   sweater: "mid",
-  crewneck: "mid",
-  hoodie: "mid",
-  fleece: "mid",
-  cardigan: "mid",
-  vest: "mid",
-  // The one type that fills the shell slot: the waterproof or windproof
-  // layer that goes over everything.
-  shell: "shell",
-  chore_jacket: "outer",
+  sweatshirt: "mid",
+  overshirt: "mid",
+  // Light jacket covers shells as well as chore jackets, so it defaults to
+  // the outer slot. Garments that were shells before the merge kept the
+  // shell slot on their own rows.
+  light_jacket: "outer",
+  heavy_jacket: "outer",
   denim_jacket: "outer",
   leather_jacket: "outer",
   blazer: "outer",
-  coat: "outer",
-  parka: "outer",
-  puffer_vest: "outer",
-  trousers: "bottom",
+  // Filed with outerwear, and the puffer it took in goes over everything.
+  vest: "outer",
+  pants: "bottom",
   jeans: "bottom",
   sweatpants: "bottom",
   shorts: "bottom",
-  sweat_shorts: "bottom",
   shoe: "footwear",
   hat: "headwear",
 };
 
-/** Also the order categories are offered in: most-owned first within each shape. */
+/** Also the order categories are offered in within each group. */
 export const CATEGORY_LABELS: Record<Category, string> = {
-  tshirt: "T-shirt",
+  tshirt: "Short sleeve T-shirt",
   polo: "Polo",
-  short_sleeve_henley: "Short sleeve henley",
-  short_sleeve_shirt: "Short sleeve shirt",
-  long_sleeve: "Long sleeve tee",
-  shirt: "Shirt",
-  henley: "Henley",
+  long_sleeve: "Long sleeve T-shirt",
+  shirt: "Button-up shirt",
   sweater: "Sweater",
-  turtleneck: "Turtleneck",
-  cardigan: "Cardigan",
-  crewneck: "Crewneck",
-  hoodie: "Hoodie",
-  tank: "Tank",
-  vest: "Vest",
-  puffer_vest: "Puffer vest",
-  shell: "Shell",
-  chore_jacket: "Chore jacket",
+  sweatshirt: "Sweatshirt",
+  tank: "Tank top",
+  light_jacket: "Light jacket",
+  heavy_jacket: "Heavy jacket",
   denim_jacket: "Denim jacket",
   leather_jacket: "Leather jacket",
   overshirt: "Overshirt",
-  fleece: "Fleece",
   blazer: "Blazer",
-  coat: "Coat",
-  parka: "Parka",
+  vest: "Vest",
   jeans: "Jeans",
-  trousers: "Trousers",
+  pants: "Pants",
   sweatpants: "Sweatpants",
   shorts: "Shorts",
-  sweat_shorts: "Sweat shorts",
   shoe: "Shoe",
   hat: "Hat",
 };

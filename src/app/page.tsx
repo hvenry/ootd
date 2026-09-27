@@ -126,25 +126,28 @@ export default async function ClosetPage() {
     createdAt: item.createdAt.toISOString(),
   }));
 
+  /* The prompt to measure: one line over the grid, in the grid's own column
+     between the filters and the sort, until the queue is empty. Start walks
+     the queue oldest first, one garment after another, back to the closet
+     at the end. */
+  const prompt =
+    toMeasure.length > 0 ? (
+      <div className="border-rule mb-6 flex items-center justify-between gap-4 border-b pb-3">
+        <p className="text-12">
+          <span className="data">{toMeasure.length}</span>{" "}
+          {toMeasure.length === 1 ? "garment" : "garments"} to measure
+        </p>
+        <Link
+          href={`/measure/${toMeasure[0].id}?next=queue&n=1&of=${toMeasure.length}`}
+          className="btn-primary px-5 py-2"
+        >
+          Start
+        </Link>
+      </div>
+    ) : null;
+
   return (
     <div>
-      {/* The prompt to measure: one line, above the grid, until the queue is
-          empty. Start walks the queue oldest first, one garment after
-          another, back to the closet at the end. */}
-      {toMeasure.length > 0 ? (
-        <div className="border-rule mb-6 flex items-baseline justify-between gap-4 border-b pb-3">
-          <p className="text-12">
-            <span className="data">{toMeasure.length}</span>{" "}
-            {toMeasure.length === 1 ? "garment" : "garments"} to measure
-          </p>
-          <Link
-            href={`/measure/${toMeasure[0].id}?next=queue`}
-            className="label link-text"
-          >
-            Start
-          </Link>
-        </div>
-      ) : null}
       {garments.length === 0 ? (
         <div className={unfinished.length > 0 ? "py-10" : "py-24"}>
           <p className="max-w-md font-serif text-24 leading-tight">
@@ -158,7 +161,7 @@ export default async function ClosetPage() {
         </div>
       ) : (
         <Suspense>
-          <ClosetBrowser items={cards} />
+          <ClosetBrowser items={cards} prompt={prompt} />
         </Suspense>
       )}
 

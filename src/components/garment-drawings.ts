@@ -2,11 +2,11 @@ import type { Category, Silhouette } from "@/lib/measure/templates";
 
 /**
  * The flat drawings: one base per silhouette, and per category the details
- * that tell a polo from a henley at a glance.
+ * that tell a polo from a T-shirt at a glance.
  *
  * The base owns every point a measurement lands on — pits, shoulder points,
  * the high point of the shoulder, cuffs, hem, waist corners, crotch. A
- * category may redraw the neck (a cardigan's V, a blazer's lapels) and add
+ * category may redraw the neck (a polo's collar, a blazer's lapels) and add
  * whatever sits inside the outline, but never moves one of those points:
  * the hint lines in `lib/measure/templates` are authored against the base,
  * and a pocket is decoration while a moved pit is a wrong diagram.
@@ -18,7 +18,7 @@ export type Drawing = {
   /**
    * Pieces behind `over` at outline weight, like a hood behind a collar.
    * A separate layer, because one path cannot hide its own strokes. Drawn
-   * before `details`, so ribbing can sit on a piece like a turtleneck.
+   * before `details`, so detail can sit on a piece behind a collar.
    */
   under: string;
   /**
@@ -195,11 +195,6 @@ type Recipe = (parts: Record<string, string>) => Partial<Drawing>;
 
 const join = (...ds: (string | undefined)[]) => ds.filter(Boolean).join(" ");
 
-/** A tee with the neck swapped, the commonest shape of change. */
-const shortWith =
-  (neck: string, over = ""): Recipe =>
-  (p) => ({ over, details: join(neck, p.armholes, p.cuffs, p.hem) });
-
 const longWith =
   (neck: string, over = "", extra = ""): Recipe =>
   (p) => ({ over, details: join(neck, p.armholes, p.cuffs, p.hem, extra) });
@@ -238,15 +233,6 @@ const SHORT_POLO_COLLAR = collar(
   "M39,4 L36,11 L45,23 L50,17.5 Z",
 );
 
-// Open camp collar: the leaves lie flat and wide and part down to the top
-// button. The back runs down to the neckline itself, so the opening shows
-// one curve there rather than a band edge above the neck. The back is its
-// own layer: it reaches out under the leaves, and in one path with them its
-// edges would draw across their faces.
-const CAMP_COLLAR_BACK = "M39,4 L61,4 L63,10 Q50,19 37,10 Z";
-const CAMP_COLLAR_LEAVES = both("M39,4 L33,12 L32,19 L41,22 L50,32 Z");
-
-
 const SHIRT_COLLAR = collar(
   "M43.5,4 L56.5,4 L50,16 Z",
   "M46.75,10 Q50,12 53.25,10",
@@ -268,8 +254,7 @@ const CENTRE_SEAM = "M50,11 L50,38 ";
 
 /**
  * Sweats: a deep elastic band gathered in ribs, a drawcord out of the
- * front, and a plain centre seam, since there is no fly. Pants and shorts
- * share one waist, so it is written once.
+ * front, and a plain centre seam, since there is no fly.
  */
 const ELASTIC_WAIST =
   "M26.8,14 L73.2,14 " +
@@ -283,31 +268,13 @@ const SLANT_POCKETS = both("M38,11 L26.3,30");
 
 /**
  * What an open front shows of the back: the inside of the back neckline
- * across the top of the opening. Without it a V-neck reads as a garment
+ * across the top of the opening. Without it a scoop neck reads as a garment
  * with no back at all.
  */
-const LONG_BACK_NECK = "M42,10 Q50,14 58,10 ";
 const VEST_BACK_NECK = "M38,10 Q50,14.5 62,10 ";
 
 /** Behind lapels, the back of the collar is one straight line across. */
 const LAPEL_BACK = "M42,10 L58,10 ";
-
-/**
- * The turtleneck's ribs, each fitted between the neck's two curves: under
- * the opening (y = 2 + 4t(1-t)) and above the foot, which follows the
- * neckline (y = 10 + 20t(1-t)), t running 0..1 across the neck. Straight
- * ribs overrun the foot at the sides and stop short of it in the middle.
- */
-const NECK_RIBS = (() => {
-  let d = "";
-  for (let x = 43.8; x < 57.5; x += 1.8) {
-    const t = (x - 42) / 16;
-    const top = 2 + 4 * t * (1 - t) + 0.9;
-    const foot = 10 + 20 * t * (1 - t) - 0.9;
-    d += `M${+x.toFixed(2)},${+top.toFixed(2)} L${+x.toFixed(2)},${+foot.toFixed(2)} `;
-  }
-  return d;
-})();
 
 const RECIPES: Partial<Record<Category, Recipe>> = {
   // ---- short sleeve
@@ -321,37 +288,8 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       p.hem,
     ),
   }),
-  short_sleeve_henley: (p) =>
-    shortWith(
-      join(
-        p.neck,
-        "M47.5,16.3 L47.5,33 L52.5,33 L52.5,16.3",
-        circles(50, [20.5, 25, 29.5]),
-      ),
-    )(p),
-  // Camp collar: lapel-like leaves opening to a V at the top button.
-  short_sleeve_shirt: (p) => ({
-    under: CAMP_COLLAR_BACK,
-    over: CAMP_COLLAR_LEAVES,
-    details: join(
-      "M50,32 L50,92",
-      circles(50, [42, 55, 68, 81]),
-      "M58,30 L67,30 L67,39 L62.5,41 L58,39 Z",
-      p.armholes,
-      p.cuffs,
-      p.hem,
-    ),
-  }),
 
   // ---- long sleeve
-  henley: (p) =>
-    longWith(
-      join(
-        p.neck,
-        "M47.5,17.5 L47.5,34 L52.5,34 L52.5,17.5",
-        circles(50, [21.5, 26, 30.5]),
-      ),
-    )(p),
   shirt: (p) =>
     longWith(
       join(
@@ -383,37 +321,8 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       cable(64, 22, 78),
     ),
   }),
-  // A tall ribbed neck, its foot following the neckline so it sits on the
-  // body, the opening across the top.
-  turtleneck: (p) => ({
-    under: "M42,10 L42,2 Q50,1 58,2 L58,10 Q50,20 42,10 Z",
-    over: "M42,2 Q50,4 58,2",
-    details: join(
-      NECK_RIBS,
-      p.armholes,
-      p.cuffs,
-      DEEP_CUFFS,
-      ribHem(83),
-    ),
-  }),
-  cardigan: (p) => ({
-    // Sides that curve in rather than a straight V, meeting in a point.
-    path:
-      "M42,10 L28,15 L-5,86 L6,89 L23,63 L23,88 L77,88 L77,63 L94,89 " +
-      "L105,86 L72,15 L58,10 Q57.5,33 50,42 Q42.5,33 42,10 Z",
-    over: LONG_BACK_NECK,
-    details: join(
-      "M50,42 L50,88",
-      circles(50, [50, 58, 66, 74]),
-      both("M29,64 L39,64 L39,75 L29,75 Z"),
-      p.armholes,
-      p.cuffs,
-      DEEP_CUFFS,
-      ribHem(82),
-    ),
-  }),
   // Raglan sleeves, the little V under the collar, a deep ribbed waistband.
-  crewneck: (p) => ({
+  sweatshirt: (p) => ({
     details: join(
       p.neck,
       // Ends on the neckband curve, where it crosses x = 44.5 and 55.5.
@@ -422,49 +331,6 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       p.cuffs,
       DEEP_CUFFS,
       ribHem(81),
-    ),
-  }),
-  // A hoodie, laid flat: the hood rising out of the shoulders, the face
-  // opening a shallow curve high inside it, two drawcords hanging from it. Dropped shoulders, a kangaroo
-  // pocket, a plain hem band.
-  hoodie: (p) => ({
-    over: join(
-      // The hood's sides flare out of the shoulder line and round over
-      // the top, so hood and shoulders read as one outline.
-      // It rises only a little above the neck: a hood lying flat falls
-      // back onto the shoulders, it does not stand a head's height up.
-      "M30,14.3 C29.5,11 31,7.5 36,7 Q50,6.3 64,7 C69,7.5 70.5,11 70,14.3",
-      // The face opening: wide and shallow, its foot dipping onto the
-      // chest below the hood's base. Set higher and it reads as a collar.
-      "M33,11.5 Q50,9.2 67,11.5 C64.5,18 56.5,21 50,21 C43.5,21 35.5,18 33,11.5 Z",
-    ),
-    details: join(
-      // Two plain cords out of the foot of the opening.
-      "M47,19 L47,33 M53,19 L53,33",
-      "M34,58 L66,58 L70,78 L30,78 Z",
-      p.armholes,
-      p.cuffs,
-      DEEP_CUFFS,
-      "M23,81 L77,81",
-    ),
-  }),
-  // A stand collar and a half zip.
-  fleece: (p) => ({
-    // The stand's foot follows the neckline so it sits on the body; the
-    // curve across its top is the front of the collar; the zip starts
-    // there, on top of the stand, and runs on down the front.
-    over: join(
-      "M42,10 L42.5,4.5 Q50,3.3 57.5,4.5 L58,10 Q50,20 42,10 Z",
-      "M42.5,4.5 Q50,6.8 57.5,4.5",
-      "M50,5.6 L50,15",
-    ),
-    details: join(
-      "M50,15 L50,34 M49,34 L51,34 L51,38 L49,38 Z",
-      "M58,28 L66,26",
-      p.armholes,
-      p.cuffs,
-      p.hem,
-      circle(70, 86.5, 1),
     ),
   }),
 
@@ -480,20 +346,12 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       p.hem,
     ),
   }),
-  // A waistcoat: the front opening and welt pockets.
-  vest: (p) => ({
-    over: VEST_BACK_NECK,
-    details: join(
-      p.neck,
-      p.front,
-      both("M29,64 L38,62.5"),
-    ),
-  }),
 
   // ---- outerwear
-  // A shell or windbreaker: stand collar, full zip, a chest zip, zipped
-  // hand pockets, a drawcord hem and tabbed cuffs.
-  shell: (p) => ({
+  // Drawn as a shell or windbreaker, the most common of the light jackets:
+  // stand collar, full zip, a chest zip, zipped hand pockets, a drawcord hem
+  // and tabbed cuffs.
+  light_jacket: (p) => ({
     over: join("M42,10 L42,4.5 Q50,3.5 58,4.5 L58,10", "M50,4.3 L50,10"),
     details: join(
       "M50,10 L50,88",
@@ -507,14 +365,18 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       both("M1,80 L5.5,81.5"),
     ),
   }),
-  chore_jacket: (p) => ({
+  // The jackets' spread collar over a storm flap, four pockets, a waist
+  // cord, deep cuffs.
+  heavy_jacket: (p) => ({
     over: CHORE_COLLAR,
     details: join(
-      "M50,16 L50,88",
-      circles(50, [30, 42, 54, 66, 78], 1.1),
-      both("M28,58 L40,58 L40,72 L28,72 Z"),
+      "M48,16 L48,88 M52,16 L52,88",
+      both("M30,30 L40,30 L40,33 L30,33 Z"),
+      both("M28,60 L41,60 L41,76 L28,76 Z M28,64 L41,64"),
+      "M23,56 L77,56",
       p.armholes,
       p.cuffs,
+      DEEP_CUFFS,
       p.hem,
     ),
   }),
@@ -559,68 +421,20 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       p.cuffs,
     ),
   }),
-  // A peacoat: broad lapels closing mid-chest, two columns of three big
-  // buttons set well out from the front edge, vertical hand-warmer pockets.
-  // Set against the blazer's long V and flap pockets.
-  coat: (p) => ({
-    path: LONG_V(40),
-    over: `${LAPEL_BACK} ${both("M42,10 L33,19 L37.5,22 L30,27 L50,40")}`,
-    details: join(
-      "M50,40 L50,88",
-      circles(43, [50, 62, 74], 2.2),
-      circles(57, [50, 62, 74], 2.2),
-      both("M31,56 L33,72"),
-      p.armholes,
-      p.cuffs,
-    ),
-  }),
-  // Hood and neck tube, storm flap, four pockets, a waist cord.
-  parka: (p) => ({
-    // A small hood folded down behind a tall zipped neck tube. The hood
-    // closes along the shoulder lines so they still run in to the tube, and
-    // the tube's foot follows the neckline so it sits on the body.
-    under:
-      "M35,12.5 C34,6 36,1.5 41,1 Q50,0.3 59,1 C64,1.5 66,6 65,12.5 " +
-      "L58,10 L42,10 Z",
-    over: join(
-      "M42,10 L42.5,3 Q50,1.8 57.5,3 L58,10 Q50,20 42,10 Z",
-      "M42.5,3 Q50,5.5 57.5,3",
-      // Down to the tube's foot, where the storm flap takes over.
-      "M50,4.7 L50,15",
-    ),
-    details: join(
-      "M48,10 L48,88 M52,10 L52,88",
-      both("M30,30 L40,30 L40,33 L30,33 Z"),
-      both("M28,60 L41,60 L41,76 L28,76 Z M28,64 L41,64"),
-      "M23,56 L77,56",
-      p.armholes,
-      p.cuffs,
-      DEEP_CUFFS,
-      p.hem,
-    ),
-  }),
 
-  // A puffer vest: stand collar, full zip, quilted baffles across the body.
-  // The neck is redrawn shallow; the straps, pits and hem stay put.
-  puffer_vest: () => ({
-    path:
-      "M38,10 L29,15 C33,24 34,40 23,47 L23,92 L77,92 L77,47 " +
-      "C66,40 67,24 71,15 L62,10 Q50,16 38,10 Z",
-    over: join(
-      "M38,10 L38,4 Q50,3 62,4 L62,10 Q50,16 38,10 Z",
-      "M50,3.7 L50,15",
-    ),
+  // A waistcoat: the front opening and welt pockets.
+  vest: (p) => ({
+    over: VEST_BACK_NECK,
     details: join(
-      "M50,15 L50,92",
-      "M31.4,24 L68.6,24 M31.5,33 L68.5,33 M28,42 L72,42",
-      "M23,51 L77,51 M23,60 L77,60 M23,69 L77,69 M23,78 L77,78",
-      "M23,88 L77,88",
+      p.neck,
+      p.front,
+      both("M29,64 L38,62.5"),
     ),
   }),
 
   // ---- bottoms
-  // Dress trousers: slant pockets, a pressed crease, a blind hem.
-  trousers: (p) => ({
+  // Drawn as dress trousers: slant pockets, a pressed crease, a blind hem.
+  pants: (p) => ({
     details: join(
       p.band,
       p.loops,
@@ -640,14 +454,6 @@ const RECIPES: Partial<Record<Category, Recipe>> = {
       p.pockets,
       circle(27.8, 19.2, 0.6),
       circle(72.2, 19.2, 0.6),
-      p.hems,
-    ),
-  }),
-  // The sweatpants' waist on the shorts: drawcord, seam pockets, plain hems.
-  sweat_shorts: (p) => ({
-    details: join(
-      ELASTIC_WAIST,
-      both("M28.5,18 L27,30"),
       p.hems,
     ),
   }),

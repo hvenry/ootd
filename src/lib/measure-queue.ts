@@ -10,7 +10,7 @@ import { garment, measurement } from "@/db/schema";
  */
 export async function unmeasuredGarments(ownerId: string) {
   return db
-    .select({ id: garment.id })
+    .select({ id: garment.id, createdAt: garment.createdAt })
     .from(garment)
     .where(
       and(

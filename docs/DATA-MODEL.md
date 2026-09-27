@@ -52,6 +52,14 @@ or `failed`. `result` holds `cutoutPath`, `provider` and `seconds`, or an
 `error`. `content_hash` is unique per kind, and a job gets three attempts
 before it is parked as failed.
 
+### rig
+One row per owner: the marker rig as built, saved from Settings. Four sides
+and the ID 0 to ID 2 diagonal in integer millimetres, an optional second
+diagonal that only checks the others, and the printed black square (null for
+a perfect print). Capture solves each new photo's homography from it, and the
+photo stores that homography, so editing the rig never moves an existing
+measurement. With no row, the `NEXT_PUBLIC_SHEET_*` environment is used.
+
 ## Planned
 
 | Table or column | Purpose |

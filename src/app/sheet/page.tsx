@@ -398,7 +398,8 @@ function TiledInstructions({
           <strong className="text-fg">100% scale</strong>, with fit to page off.
           The black square must measure{" "}
           <strong className="text-fg">{TILE_BLACK_SQUARE_MM}&nbsp;mm</strong> a
-          side. If it does not, the printer scaled it.
+          side. If it does not, the printer scaled it: enter what it measures
+          in Settings and the offsets scale to match.
         </li>
         <li>
           Tape the pages down, marker side up, at the corners of a space larger
@@ -425,9 +426,8 @@ function TiledInstructions({
           correctly and still gets a sleeve wrong.
         </li>
         <li>
-          The second diagonal, ID&nbsp;1 to ID&nbsp;3, is optional. Set{" "}
-          <code className="data">NEXT_PUBLIC_SHEET_DIAG2_MM</code> and capture
-          cross-checks the other five.
+          The second diagonal, ID&nbsp;1 to ID&nbsp;3, is optional. Enter it
+          and the other five are cross-checked.
         </li>
         <li>
           Lay the garment flat inside the rectangle and shoot straight down with
@@ -438,20 +438,25 @@ function TiledInstructions({
       <RigDiagram />
 
       <div className="rule-top mb-6 pt-3">
-        <p className="label text-fg2 mb-2">Where the six numbers go</p>
+        <p className="label text-fg2 mb-2">
+          Where the six numbers go:{" "}
+          <Link href="/settings" className="link-text">
+            Settings
+          </Link>
+        </p>
         {[
-          ["NEXT_PUBLIC_SHEET_TOP_MM", "ID 0 → 1, across the top"],
-          ["NEXT_PUBLIC_SHEET_RIGHT_MM", "ID 1 → 2, down the right"],
-          ["NEXT_PUBLIC_SHEET_BOTTOM_MM", "ID 3 → 2, across the bottom"],
-          ["NEXT_PUBLIC_SHEET_LEFT_MM", "ID 0 → 3, down the left"],
-          ["NEXT_PUBLIC_SHEET_DIAG_MM", "ID 0 → 2, required"],
-          ["NEXT_PUBLIC_SHEET_DIAG2_MM", "ID 1 → 3, optional check"],
-        ].map(([envVar, what]) => (
+          ["Top", "ID 0 → 1, across the top"],
+          ["Right", "ID 1 → 2, down the right"],
+          ["Bottom", "ID 3 → 2, across the bottom"],
+          ["Left", "ID 0 → 3, down the left"],
+          ["Diagonal", "ID 0 → 2, required"],
+          ["Second diagonal", "ID 1 → 3, optional check"],
+        ].map(([field, what]) => (
           <div
-            key={envVar}
+            key={field}
             className="rule-top flex justify-between gap-4 py-1.5"
           >
-            <code className="data text-fg2">{envVar}</code>
+            <span className="text-fg2">{field}</span>
             <span className="text-fg2 text-right">{what}</span>
           </div>
         ))}

@@ -104,10 +104,11 @@ export const TARGET_OFFSET_Y_MM = 68;
  *
  * The marker *span* is measured directly and is unaffected either way.
  */
-export function printScale(): number {
-  const measured = Number(process.env.NEXT_PUBLIC_SHEET_BLACK_SQUARE_MM);
-  if (!Number.isFinite(measured) || measured <= 0) return 1;
-  return measured / TILE_BLACK_SQUARE_MM;
+export function printScale(blackSquareMm: number | null): number {
+  if (blackSquareMm === null || !Number.isFinite(blackSquareMm) || blackSquareMm <= 0) {
+    return 1;
+  }
+  return blackSquareMm / TILE_BLACK_SQUARE_MM;
 }
 
 /** Nominal offsets, as drawn into the PDF. */
@@ -123,7 +124,7 @@ export const TILE_VERSION_MARKER_SIZE_MM = 30;
 export const SUGGESTED_SPANS = [
   { label: "Tees, shirts, knits", xMm: 800, yMm: 1000 },
   { label: "Jackets, coats", xMm: 900, yMm: 1100 },
-  { label: "Trousers, jeans", xMm: 700, yMm: 1300 },
+  { label: "Pants, jeans", xMm: 700, yMm: 1300 },
 ] as const;
 
 /** Single-sheet A3 layout — only useful for small flat items. */
@@ -176,11 +177,6 @@ export const NOMINAL_SPACING_X_MM =
 export const NOMINAL_SPACING_Y_MM =
   SHEET_HEIGHT_MM - 2 * (SHEET_MARGIN_MM + MARKER_SIZE_MM / 2);
 
-function envNumber(raw: string | undefined, fallback: number): number {
-  const n = Number(raw);
-  return Number.isFinite(n) && n > 0 ? n : fallback;
-}
-
 /**
  * What the tape measure said, between marker centres.
  *
@@ -205,7 +201,24 @@ export type MeasuredQuad = {
   diag2?: number;
 };
 
-export function measuredQuad(): MeasuredQuad {
+/**
+ * The rig as built: its measured spans, and what the printed square came out
+ * as (null for a print assumed perfect). Saved from Settings; see
+ * `src/lib/rig.ts` for where it is read.
+ */
+export type Rig = { quad: MeasuredQuad; blackSquareMm: number | null };
+
+function envNumber(raw: string | undefined, fallback: number): number {
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? n : fallback;
+}
+
+/**
+ * The rig from `NEXT_PUBLIC_SHEET_*`, for an install that has not saved one
+ * in Settings yet. Each missing number falls back to the rectangle it
+ * implies, and then to the nominal A3 spacing.
+ */
+export function rigFromEnv(): Rig {
   // The rectangle shorthand, for a rig built carefully enough to trust it.
   const top = envNumber(
     process.env.NEXT_PUBLIC_SHEET_TOP_MM ?? process.env.NEXT_PUBLIC_SHEET_SPACING_X_MM,
@@ -223,8 +236,12 @@ export function measuredQuad(): MeasuredQuad {
   );
   const diag2Raw = Number(process.env.NEXT_PUBLIC_SHEET_DIAG2_MM);
   const diag2 = Number.isFinite(diag2Raw) && diag2Raw > 0 ? diag2Raw : undefined;
+  const square = Number(process.env.NEXT_PUBLIC_SHEET_BLACK_SQUARE_MM);
 
-  return { top, right, bottom, left, diag, diag2 };
+  return {
+    quad: { top, right, bottom, left, diag, diag2 },
+    blackSquareMm: Number.isFinite(square) && square > 0 ? square : null,
+  };
 }
 
 /**
@@ -268,7 +285,7 @@ function side(a: Point, b: Point, p: Point): number {
  * Marker 0 is the origin and marker 1 lies along +x, which fixes the rigid
  * motion the distances cannot determine.
  */
-export function solveQuadMm(q: MeasuredQuad = measuredQuad()): Point[] {
+export function solveQuadMm(q: MeasuredQuad): Point[] {
   const p0 = { x: 0, y: 0 };
   const p1 = { x: q.top, y: 0 };
 
@@ -289,12 +306,15 @@ function pick(candidates: [Point, Point], test: (p: Point) => boolean): Point {
   throw new Error("Measured distances describe a folded shape");
 }
 
+/** Above this the two diagonals disagree by more than any rig should. */
+export const RIG_TOLERANCE_MM = 5;
+
 /**
  * How far the optional second diagonal is from what the other five imply.
  * A few millimetres is tape-measure noise; tens of millimetres means one of
  * the numbers is wrong, and every measurement would inherit it.
  */
-export function quadCheckMm(q: MeasuredQuad = measuredQuad()): number | null {
+export function quadCheckMm(q: MeasuredQuad): number | null {
   if (q.diag2 === undefined) return null;
   try {
     const [, p1, , p3] = solveQuadMm(q);
@@ -305,8 +325,8 @@ export function quadCheckMm(q: MeasuredQuad = measuredQuad()): number | null {
 }
 
 /** Offsets as they exist on the paper you actually printed. */
-export function printedTargetOffsets(): Point[] {
-  const k = printScale();
+export function printedTargetOffsets(blackSquareMm: number | null): Point[] {
+  const k = printScale(blackSquareMm);
   return TARGET_OFFSETS.map((o) => ({ x: o.x * k, y: o.y * k }));
 }
 
@@ -319,10 +339,7 @@ export function printedTargetOffsets(): Point[] {
  * off the rig's two side edges, which is why keeping the pages square to each
  * other matters more than anything else in the setup.
  */
-export function markerQuadMm(
-  circles: Point[],
-  offsets: Point[] = printedTargetOffsets(),
-): Point[] {
+export function markerQuadMm(circles: Point[], offsets: Point[]): Point[] {
   const ux = circles[0].x - circles[3].x + (circles[1].x - circles[2].x);
   const uy = circles[0].y - circles[3].y + (circles[1].y - circles[2].y);
   const n = Math.hypot(ux, uy);
@@ -344,10 +361,11 @@ export function markerQuadMm(
  * Destination points for the four corner markers, in metric canvas pixels.
  * This is the target of the homography.
  */
-export function sheetCanvasCorners(q: MeasuredQuad = measuredQuad()): Point[] {
+export function sheetCanvasCorners(rig: Rig): Point[] {
+  const q = rig.quad;
   let mm: Point[];
   try {
-    mm = markerQuadMm(solveQuadMm(q));
+    mm = markerQuadMm(solveQuadMm(q), printedTargetOffsets(rig.blackSquareMm));
   } catch {
     // Impossible distances: fall back to the rectangle rather than refuse to
     // measure at all. The numbers are then only as good as the placement.
@@ -361,11 +379,11 @@ export function sheetCanvasCorners(q: MeasuredQuad = measuredQuad()): Point[] {
   return mm.map((p) => ({ x: p.x * PX_PER_MM, y: p.y * PX_PER_MM }));
 }
 
-export function sheetCanvasSize(q: MeasuredQuad = measuredQuad()): {
+export function sheetCanvasSize(rig: Rig): {
   width: number;
   height: number;
 } {
-  const corners = sheetCanvasCorners(q);
+  const corners = sheetCanvasCorners(rig);
   return {
     width: Math.round(Math.max(...corners.map((c) => c.x))),
     height: Math.round(Math.max(...corners.map((c) => c.y))),
@@ -401,7 +419,11 @@ export const WHITE_PATCH = {
  * Millimetres from the top-left marker centre to metric canvas pixels,
  * scaled by however the sheet actually printed.
  */
-export function offsetMmToCanvas(xMm: number, yMm: number): Point {
-  const k = printScale();
+export function offsetMmToCanvas(
+  xMm: number,
+  yMm: number,
+  blackSquareMm: number | null,
+): Point {
+  const k = printScale(blackSquareMm);
   return { x: xMm * k * PX_PER_MM, y: yMm * k * PX_PER_MM };
 }

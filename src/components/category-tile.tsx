@@ -7,7 +7,7 @@ import {
 
 /**
  * One garment type to pick: its flat drawing over its name. The drawing is
- * what does the explaining — a henley's placket, a chore coat's pockets —
+ * what does the explaining — a henley's placket, a trucker's yoke —
  * so the tile carries no description.
  */
 export function CategoryTile({
@@ -34,9 +34,26 @@ export function CategoryTile({
         ) : null}
       </span>
       <span className="text-center leading-tight">
-        {CATEGORY_LABELS[category]}
+        {nowrapHyphenated(CATEGORY_LABELS[category])}
       </span>
     </button>
+  );
+}
+
+/**
+ * Browsers break after a hyphen, so a narrow tile set "T-" over "shirt".
+ * Hyphenated words are held together; the label still wraps between words.
+ * A span rather than a non-breaking hyphen, which not every font carries.
+ */
+function nowrapHyphenated(label: string): React.ReactNode {
+  return label.split(/(\S*-\S*)/).map((part, i) =>
+    part.includes("-") ? (
+      <span key={i} className="whitespace-nowrap">
+        {part}
+      </span>
+    ) : (
+      part
+    ),
   );
 }
 

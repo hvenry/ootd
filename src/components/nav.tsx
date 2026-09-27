@@ -61,8 +61,7 @@ export function Nav() {
         <div className="flex flex-1 items-center justify-end gap-6">
           <StatusLink />
           <NavLink href="/measurements">Measurements</NavLink>
-          {/* Settings: today that is the calibration sheet, so it still routes there. */}
-          <NavLink href="/sheet">Settings</NavLink>
+          <NavLink href="/settings">Settings</NavLink>
         </div>
       </div>
     </header>

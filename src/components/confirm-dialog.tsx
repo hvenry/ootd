@@ -3,16 +3,18 @@
 import { useEffect, useRef } from "react";
 
 /**
- * A centred confirmation. Used for the one irreversible act in the app, so
- * it is deliberately plain: a hairline box on a washed-out page, a sentence,
- * and two words. Escape and the backdrop both mean "keep it"; only the
- * red word does the thing.
+ * A centred confirmation. Used for the irreversible acts in the app
+ * (removing a garment, dropping its measurements), so it is deliberately
+ * plain: a hairline box on a washed-out page, a sentence, and two words.
+ * Escape and the backdrop both mean "keep it"; only the red word does the
+ * thing.
  */
 export function ConfirmDialog({
   open,
   title,
   body,
   confirmLabel,
+  pendingLabel = "Removing…",
   pending = false,
   onConfirm,
   onCancel,
@@ -21,6 +23,8 @@ export function ConfirmDialog({
   title: string;
   body: React.ReactNode;
   confirmLabel: string;
+  /** What the confirm button says while the act is under way. */
+  pendingLabel?: string;
   pending?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
@@ -72,7 +76,7 @@ export function ConfirmDialog({
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? "Removing…" : confirmLabel}
+            {pending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>

@@ -153,8 +153,11 @@ export function MeasureScreen({
   silhouette,
   existing,
   doneHref,
+  queue = null,
 }: {
   garment: GarmentSummary;
+  /** Working through the closet's to-measure queue: this one's place in it. */
+  queue?: { position: number; total: number } | null;
   /**
    * Where Done and Exit go: the item page, the closet, or the next garment
    * still to measure when working through the queue.
@@ -671,10 +674,11 @@ export function MeasureScreen({
   const isLast = stepIndex === shown.length - 1;
   const isFirst = stepIndex <= 0;
 
-  /* The way out, top right, where a close always is. */
+  /* The way out, top right, where a close always is. In the queue it leads
+     on to the next garment, not out, so it says so. */
   const exit = (
     <Link href={doneHref} className="label link-text shrink-0">
-      {changedKeys.length > 0 ? "Discard" : "Exit"}
+      {changedKeys.length > 0 ? "Discard" : queue ? "Skip" : "Exit"}
     </Link>
   );
 
@@ -857,81 +861,106 @@ export function MeasureScreen({
 
   const status = cutoutStatus();
 
-  return (
-    /* Phone: reading, photo, Next, then the list. Desktop: a frame exactly
-       the viewport height, the photo as tall as it allows on the left, the
-       panel on the right; the page does not scroll. */
-    <div className="grid gap-4 md:mx-auto md:mb-[calc(var(--screen-gap)-var(--main-pb))] md:h-[calc(100dvh-var(--header-h)-var(--screen-gap))] md:max-w-[1400px] md:grid-cols-[minmax(0,1fr)_300px] md:gap-x-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-x-10">
-      <div className="md:hidden">{reading}</div>
+  /* The run Start began, across the top: which garment this is, how many
+     are left, and a bar filled by the ones already done. A fixed height,
+     taken out of the desktop frame below so the page still does not
+     scroll. */
+  const queueStatus = queue ? (
+    <div className="flex h-(--queue-h) flex-col justify-start md:mx-auto md:max-w-[1400px]">
+      <div className="flex items-baseline justify-between gap-4 text-12">
+        <span className="data">
+          {queue.position} / {queue.total}
+        </span>
+        <span className="text-fg3">
+          {queue.total - queue.position + 1} left
+        </span>
+      </div>
+      <div className="mt-1.5">
+        <ProgressBar fraction={(queue.position - 1) / queue.total} />
+      </div>
+    </div>
+  ) : null;
 
-      <div className="relative flex items-start justify-center md:col-start-1 md:row-span-2 md:row-start-1 md:h-full md:min-h-0">
-        {/* The frame is the view's shape, as wide as the column allows and
+  return (
+    <div
+      style={{ "--queue-h": queue ? "2.5rem" : "0px" } as React.CSSProperties}
+    >
+      {queueStatus}
+      {/* Phone: reading, photo, Next, then the list. Desktop: a frame exactly
+        the viewport height, the photo as tall as it allows on the left, the
+        panel on the right; the page does not scroll. */}
+      <div className="grid gap-4 md:mx-auto md:mb-[calc(var(--screen-gap)-var(--main-pb))] md:h-[calc(100dvh-var(--header-h)-var(--screen-gap)-var(--queue-h))] md:max-w-[1400px] md:grid-cols-[minmax(0,1fr)_300px] md:gap-x-8 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-x-10">
+        <div className="md:hidden">{reading}</div>
+
+        <div className="relative flex items-start justify-center md:col-start-1 md:row-span-2 md:row-start-1 md:h-full md:min-h-0">
+          {/* The frame is the view's shape, as wide as the column allows and
             no taller than the screen's share for the photo. The overlay
             positions pins against it. */}
-        <div
-          ref={frameRef}
-          className="measure-frame relative select-none"
-          style={{
-            aspectRatio: view ? `${view.w} / ${view.h}` : "3 / 4",
-            width: `min(100%, calc(var(--photo-max-h) * ${view ? view.w / view.h : 0.75}))`,
-          }}
-        >
-          <div className="absolute inset-0 overflow-hidden">
-            {/* Plain <img> on purpose: the mask is read off these exact
+          <div
+            ref={frameRef}
+            className="measure-frame relative select-none"
+            style={{
+              aspectRatio: view ? `${view.w} / ${view.h}` : "3 / 4",
+              width: `min(100%, calc(var(--photo-max-h) * ${view ? view.w / view.h : 0.75}))`,
+            }}
+          >
+            <div className="absolute inset-0 overflow-hidden">
+              {/* Plain <img> on purpose: the mask is read off these exact
                 pixels, so nothing may resample them. See eslint.config.mjs. */}
-            <img
-              key={photo.id}
-              ref={attachImage}
-              src={`/api/media/${source}`}
-              alt=""
-              onLoad={(event) => readImage(event.currentTarget)}
-              className="absolute max-w-none"
-              style={
-                view && natural
-                  ? {
-                      left: -view.x * displayScale,
-                      top: -view.y * displayScale,
-                      width: natural.w * displayScale,
-                      height: natural.h * displayScale,
-                    }
-                  : { left: 0, top: 0, width: "100%" }
-              }
-              draggable={false}
-            />
+              <img
+                key={photo.id}
+                ref={attachImage}
+                src={`/api/media/${source}`}
+                alt=""
+                onLoad={(event) => readImage(event.currentTarget)}
+                className="absolute max-w-none"
+                style={
+                  view && natural
+                    ? {
+                        left: -view.x * displayScale,
+                        top: -view.y * displayScale,
+                        width: natural.w * displayScale,
+                        height: natural.h * displayScale,
+                      }
+                    : { left: 0, top: 0, width: "100%" }
+                }
+                draggable={false}
+              />
+            </div>
+
+            {currentHandles ? (
+              <Overlay
+                handles={currentHandles}
+                scale={displayScale}
+                origin={view ?? { x: 0, y: 0 }}
+                onGrab={(which, event) => {
+                  event.preventDefault();
+                  setDragging(which);
+                  setLoupeAt(currentHandles[which]);
+                }}
+              />
+            ) : null}
           </div>
-
-          {currentHandles ? (
-            <Overlay
-              handles={currentHandles}
-              scale={displayScale}
-              origin={view ?? { x: 0, y: 0 }}
-              onGrab={(which, event) => {
-                event.preventDefault();
-                setDragging(which);
-                setLoupeAt(currentHandles[which]);
-              }}
-            />
-          ) : null}
         </div>
-      </div>
 
-      <div className="md:hidden">
-        {nextRow}
-        <div className="mt-3">{status}</div>
-      </div>
-
-      {/* Desktop: one panel, reading on top, stuck under the header while the
-          tall photo scrolls beside it. */}
-      <div className="md:col-start-2 md:row-span-2 md:row-start-1 md:min-h-0 md:overflow-y-auto">
-        <div className="hidden pb-5 md:block">{reading}</div>
-        {list}
-        {/* Buttons follow the list rather than being pinned to the foot of
-            the column, so they sit under the guide where the eye ends. */}
-        <div className="hidden pt-6 md:block">
+        <div className="md:hidden">
           {nextRow}
           <div className="mt-3">{status}</div>
         </div>
-        {note ? <p className="data text-fg2 mt-3">{note}</p> : null}
+
+        {/* Desktop: one panel, reading on top, stuck under the header while the
+          tall photo scrolls beside it. */}
+        <div className="md:col-start-2 md:row-span-2 md:row-start-1 md:min-h-0 md:overflow-y-auto">
+          <div className="hidden pb-5 md:block">{reading}</div>
+          {list}
+          {/* Buttons follow the list rather than being pinned to the foot of
+            the column, so they sit under the guide where the eye ends. */}
+          <div className="hidden pt-6 md:block">
+            {nextRow}
+            <div className="mt-3">{status}</div>
+          </div>
+          {note ? <p className="data text-fg2 mt-3">{note}</p> : null}
+        </div>
       </div>
     </div>
   );

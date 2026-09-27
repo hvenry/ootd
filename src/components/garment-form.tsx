@@ -4,11 +4,9 @@ import { useEffect, useRef } from "react";
 
 import {
   GROUP_LABELS,
-  TOP_TYPES,
   categoriesIn,
   type Category,
   type Group,
-  type Silhouette,
 } from "@/lib/measure/templates";
 import { declaredHex, declaredName } from "@/lib/colour/declared";
 import { BrandField } from "@/components/brand-field";
@@ -19,8 +17,6 @@ import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
 export type GarmentDraft = {
   /** Tops, bottoms or outerwear; picked first, and it decides what is offered. */
   group: Group | null;
-  /** Tops only: the sleeve, which is the shape the top is measured as. */
-  topType: Silhouette | null;
   /** null until the person picks one; nothing is preselected */
   category: Category | null;
   brand: string;
@@ -32,16 +28,11 @@ export type GarmentDraft = {
 const GROUPS: Group[] = ["top", "bottom", "outerwear"];
 
 /**
- * The types on offer once enough has been picked: a top needs its sleeve
- * first, because two dozen chips at once is a list nobody reads. Shoes and
- * hats are sized, not measured, and are not offered here yet.
+ * The types on offer once a group is picked. Shoes and hats are sized, not
+ * measured, and are not offered here yet.
  */
 function offered(draft: GarmentDraft): Category[] {
-  if (!draft.group) return [];
-  if (draft.group === "top") {
-    return draft.topType ? categoriesIn("top", draft.topType) : [];
-  }
-  return categoriesIn(draft.group);
+  return draft.group ? categoriesIn(draft.group) : [];
 }
 
 /**
@@ -94,8 +85,8 @@ function Step({
  * same reason: they are typed once, at the point where the garment is in
  * your hands and the label is readable.
  *
- * Asked one question at a time — group, sleeve, type, colour, then brand
- * and name — so the screen only ever holds the choice in front of you.
+ * Asked one question at a time — group, type, colour, then brand and name —
+ * so the screen only ever holds the choice in front of you.
  */
 export function GarmentForm({
   draft,
@@ -139,12 +130,9 @@ export function GarmentForm({
               // Re-picking the group already chosen would clear the type.
               if (draft.group === group) return;
               quiet.current = true;
-              // Tops open on the first sleeve, so the types are already
-              // showing; the other sleeves are one tap away.
               onChange({
                 ...draft,
                 group,
-                topType: group === "top" ? TOP_TYPES[0].silhouette : null,
                 category: null,
                 colour: "",
                 brand: "",
@@ -158,41 +146,11 @@ export function GarmentForm({
         ))}
       </div>
 
-      {draft.group === "top" ? (
-        <Step
-          answered={answered}
-          quiet={quiet}
-          className="mt-6 flex justify-center gap-6"
-        >
-          {TOP_TYPES.map(({ silhouette, label }) => (
-            <button
-              key={silhouette}
-              type="button"
-              aria-pressed={draft.topType === silhouette}
-              onClick={() => {
-                if (draft.topType === silhouette) return;
-                onChange({
-                  ...draft,
-                  topType: silhouette,
-                  category: null,
-                  colour: "",
-                  brand: "",
-                  name: "",
-                });
-              }}
-              className="label tab"
-            >
-              {label}
-            </button>
-          ))}
-        </Step>
-      ) : null}
-
       {offered(draft).length > 0 ? (
         <Step
           answered={answered}
           quiet={quiet}
-          key={`${draft.group}-${draft.topType}`}
+          key={draft.group}
           className={`mx-auto mt-8 max-w-3xl ${CATEGORY_GRID}`}
         >
           {offered(draft).map((c) => (

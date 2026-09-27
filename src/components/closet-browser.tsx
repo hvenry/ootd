@@ -46,7 +46,14 @@ const toggle = (set: Set<string>, value: string) => {
   return next;
 };
 
-export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
+export function ClosetBrowser({
+  items,
+  prompt,
+}: {
+  items: ClosetItem[];
+  /** A line over the grid, inside its column rather than across the page. */
+  prompt?: React.ReactNode;
+}) {
   const params = useSearchParams();
   const router = useRouter();
   // Filters can arrive in the URL: an item page links its brand, category
@@ -265,16 +272,17 @@ export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
         </div>
       </div>
 
-      {/* Filters sit on the left gutter and sort on the right, both flush
-          with the header above them; the grid takes what is left. */}
+      {/* Category and brand sit on the left gutter, sort and colour on the
+          right, all flush with the header above them; the grid takes what
+          is left. Colour is the short list, so it balances the long one. */}
       <div className="lg:flex lg:gap-16">
         <aside className="hidden w-44 shrink-0 lg:block">
           {categoryList}
           {brandList}
-          {colourList}
         </aside>
 
         <div className="min-w-0 flex-1">
+          {prompt}
           <ActiveFilters filters={active} onClearAll={clearAll} />
           <Grid
             items={visible}
@@ -282,7 +290,10 @@ export function ClosetBrowser({ items }: { items: ClosetItem[] }) {
           />
         </div>
 
-        <aside className="hidden w-28 shrink-0 lg:block">{sortList}</aside>
+        <aside className="hidden w-28 shrink-0 lg:block">
+          {sortList}
+          {colourList}
+        </aside>
       </div>
 
       <Sheet
@@ -435,10 +446,19 @@ function Grid({
               <p className="text-fg2">{item.name ?? "Untitled"}</p>
               <p className="data text-fg3 mt-1">
                 {String(item.shortId).padStart(3, "0")}
-                {item.measured ? null : " · to measure"}
               </p>
             </div>
           </Link>
+          {/* Outside the tile's link, which cannot hold another. Straight to
+              measuring this one, not the queue. */}
+          {item.measured ? null : (
+            <Link
+              href={`/measure/${item.id}`}
+              className="btn-secondary mt-3 px-3 py-1.5"
+            >
+              To measure
+            </Link>
+          )}
         </li>
       ))}
     </ul>

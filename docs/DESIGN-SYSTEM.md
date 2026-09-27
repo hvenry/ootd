@@ -43,9 +43,9 @@ smaller. `.label` is 12px uppercase with no tracking, and `.wordmark` (26px, 600
 - `.btn-primary` is black with white uppercase text, and turns into a grey
   outline when disabled. There is one per screen. `.btn-secondary` is the same
   button unfilled, for the move that undoes it.
-- `.action-row` pairs the filled button with its dismissal. On a phone it is
-  a 50/50 grid with the second control outlined. From `sm` the button fills
-  its column and the text sits beside it.
+- `.action-row` pairs the filled button with its dismissal: a 50/50 grid
+  with the second control outlined, capped at 24rem. It sits at the start of
+  its column, centred on a phone; a centred screen adds `mx-auto`.
 - `.link-text` lifts to `--fg` and underlines on hover, and `.tab` keeps the
   underline when chosen. Never add `underline-offset-*`.
 - Motion is opacity and position only, 120 to 200 ms, with no bounce or scale.
@@ -56,8 +56,10 @@ smaller. `.label` is 12px uppercase with no tracking, and `.wordmark` (26px, 600
 
 - **Header:** fixed, with no bar on desktop. Below `lg` it shows the menu and
   search icons, the wordmark, "N processing" while jobs run, and Add.
-- **To measure:** one ruled line above the closet grid with a count and
-  Start. Unmeasured tiles add "· to measure" after the id.
+- **To measure:** one ruled line at the top of the grid's column, between
+  the filters and the sort, with a count and a compact filled Start. Each
+  unmeasured tile carries a compact outlined To measure under its id, which
+  opens the measure screen for that garment.
 - **Sheet:** the full-screen panel from the left. It says "Close" on the menu
   and "Cancel" where a choice is being made.
 - **Toast:** top right under the header, in a hairline box. A label, one quiet
@@ -67,6 +69,8 @@ smaller. `.label` is 12px uppercase with no tracking, and `.wordmark` (26px, 600
 - **Measure:** the photo is cropped to the garment, up to 60dvh on a phone.
   While a pin is held, the loupe and locator replace the reading, never
   covering the photo.
+  Working through the queue from Start, a status line tops the screen:
+  `3 / 12`, how many are left, and a progress bar filled by the ones done.
 - **Diagram:** hairline strokes and mono figures. The viewBox grows to fit the
   figures instead of clipping them, and selection inverts a figure.
 

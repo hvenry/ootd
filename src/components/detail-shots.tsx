@@ -169,7 +169,7 @@ export function DetailShots({
 
       <div
         className={
-          secondary ? "action-row mt-10" : "mt-10 flex justify-center"
+          secondary ? "action-row mx-auto mt-10" : "mt-10 flex justify-center"
         }
       >
         <button

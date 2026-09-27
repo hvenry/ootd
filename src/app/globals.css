@@ -64,6 +64,18 @@
 /* There is no dark mode. Garments are judged against white, so the
    instrument is white. */
 
+/* Three families, each with one job. Kept out of the inline block below:
+   inline pastes a value into the utilities and emits no variable, and the
+   base styles, `.data` and the diagrams read these as var(--font-*). Inline,
+   those came out empty and every page fell back to the system font. Static
+   emits them whether or not a utility uses them. */
+@theme static {
+  --font-sans:
+    var(--font-grotesque), Inter, "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-serif-editorial), Georgia, serif;
+  --font-mono: var(--font-mono-data), "SF Mono", Menlo, monospace;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-fg: var(--fg);
@@ -73,11 +85,6 @@
   --color-danger: var(--danger);
   --spacing-gutter: var(--gutter);
 
-  /* Three families, each with one job. */
-  --font-sans:
-    var(--font-grotesque), Inter, "Helvetica Neue", Arial, sans-serif;
-  --font-serif: var(--font-serif-editorial), Georgia, serif;
-  --font-mono: var(--font-mono-data), "SF Mono", Menlo, monospace;
 
   /* 10 / 11 / 12 / 15 / 19 / 24, then display. */
   --text-10: 10px;
@@ -301,57 +308,56 @@
     cursor: not-allowed;
   }
 
-  /* Filled button plus the text that dismisses it. From sm the button
-     fills its column and the text sits beside it, as a product page does. */
+  /* The filled button and its dismissal split the row evenly, capped so on
+     a wide screen the button is not a bar as wide as the garment. It sits
+     at the start of its column, as the text above it does; on a phone,
+     where everything is centred, it centres too. A grid, because flex-1 on both shares out only the space left
+     after padding, and the padded button always won. Bare text cannot show
+     that it owns half a row, so the second control takes the unfilled
+     button's outline and fills its half; and the filled button drops its
+     2.5rem sides, which half a row cannot carry without "Update
+     measurements" wrapping. */
   .action-row {
-    display: flex;
-    align-items: center;
-    gap: 1.5rem;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.75rem;
+    max-width: 24rem;
   }
 
-  /* On a phone the two split the row evenly, capped and centred so the
-     button is not a full-width bar. A grid, because flex-1 on both shares
-     out only the space left after padding, and the padded button always
-     won. Bare text cannot show that it owns half a row, so here the second
-     control takes the unfilled button's outline and fills its half; and the
-     filled button drops its 2.5rem sides, which half a row cannot carry
-     without "Update measurements" wrapping. */
   @media (max-width: 639.98px) {
     .action-row {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-      align-items: stretch;
-      gap: 0.75rem;
-      max-width: 24rem;
       margin-inline: auto;
     }
+  }
 
-    .action-row > * {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-    }
+  .action-row > * {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+  }
 
-    .action-row > .btn-primary {
-      padding-inline: 0.5rem;
-    }
+  .action-row > .btn-primary {
+    padding-inline: 0.5rem;
+  }
 
-    .action-row > :not(.btn-primary) {
-      border: 1px solid var(--fg);
-      color: var(--fg);
-      text-decoration: none;
-    }
+  .action-row > :not(.btn-primary) {
+    border: 1px solid var(--fg);
+    color: var(--fg);
+    text-decoration: none;
+  }
 
+  @media (hover: hover) {
     .action-row > :not(.btn-primary):not(:disabled):hover {
       background: var(--fg);
       color: var(--bg);
     }
+  }
 
-    .action-row > :not(.btn-primary):disabled {
-      color: var(--fg3);
-      border-color: var(--rule);
-    }
+  .action-row > :not(.btn-primary):disabled {
+    color: var(--fg3);
+    border-color: var(--rule);
   }
 
   /* One text option in a row of them: nav links, filter rows, sheet tabs,

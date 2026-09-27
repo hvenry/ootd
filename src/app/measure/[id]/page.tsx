@@ -21,26 +21,41 @@ export default async function MeasurePage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ next?: string }>;
+  searchParams: Promise<{ next?: string; n?: string; of?: string }>;
 }) {
   const { id } = await params;
-  const { next } = await searchParams;
-  // "Measure now" in the add flow ends in the closet; working through the
-  // closet's to-measure queue goes on to the next unmeasured garment; an
-  // update from the item page returns to the item.
-  let doneHref = next === "closet" ? "/" : `/item/${id}`;
-  if (next === "queue") {
-    const following = (await unmeasuredGarments(OWNER_ID)).find(
-      (g) => g.id !== id,
-    );
-    doneHref = following ? `/measure/${following.id}?next=queue` : "/";
-  }
+  const { next, n, of } = await searchParams;
 
   const [row] = await db
     .select()
     .from(garment)
     .where(and(eq(garment.id, id), eq(garment.ownerId, OWNER_ID)));
   if (!row) notFound();
+
+  // "Measure now" in the add flow ends in the closet; working through the
+  // closet's to-measure queue goes on to the next unmeasured garment; an
+  // update from the item page returns to the item.
+  let doneHref = next === "closet" ? "/" : `/item/${id}`;
+  let queue: { position: number; total: number } | null = null;
+  if (next === "queue") {
+    // The next one added after this, not the first one left: Exit skips a
+    // garment, and "first left" would send a skipped one straight back.
+    const following = (await unmeasuredGarments(OWNER_ID)).find(
+      (g) => g.id !== id && g.createdAt > row.createdAt,
+    );
+    // Where this garment sits in the run Start began, carried in the URL:
+    // the queue shrinks as it is worked, so it cannot say how long it was.
+    const position = Math.max(1, Number(n) || 1);
+    const total = Math.max(position, Number(of) || position);
+    queue = { position, total };
+    doneHref = following
+      ? `/measure/${following.id}?${new URLSearchParams({
+          next: "queue",
+          n: String(position + 1),
+          of: String(total),
+        })}`
+      : "/";
+  }
 
   const photos = await db
     .select()
@@ -93,6 +108,7 @@ export default async function MeasurePage({
       dimensions={templateFor(row.category as Category)}
       silhouette={silhouetteFor(row.category as Category)}
       doneHref={doneHref}
+      queue={queue}
       existing={existing.map((m) => {
         // A row measured on some other view still counts as measured, but
         // its handle coordinates live in that photo's canvas and would draw

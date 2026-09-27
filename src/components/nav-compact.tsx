@@ -98,7 +98,7 @@ export function NavCompact() {
           </NavLink>
           <StatusLink />
           <NavLink href="/measurements">Measurements</NavLink>
-          <NavLink href="/sheet">Settings</NavLink>
+          <NavLink href="/settings">Settings</NavLink>
         </nav>
       </Sheet>
     </>

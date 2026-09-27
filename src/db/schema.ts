@@ -17,7 +17,7 @@ import {
 import { sql } from "drizzle-orm";
 
 /**
- * Schema: garment, measurement, photo, job. Planned tables: docs/DATA-MODEL.md.
+ * Schema: garment, measurement, photo, job, rig. Planned tables: docs/DATA-MODEL.md.
  *
  * Two rules from CLAUDE.md are enforced structurally here rather than by
  * convention, because violating either produces wrong numbers that nobody
@@ -42,33 +42,22 @@ import { sql } from "drizzle-orm";
 export const categoryEnum = pgEnum("category", [
   "tshirt",
   "polo",
-  "henley",
-  "short_sleeve_henley",
   "long_sleeve",
   "shirt",
-  "short_sleeve_shirt",
-  "overshirt",
-  "turtleneck",
   "sweater",
-  "crewneck",
-  "hoodie",
-  "fleece",
-  "cardigan",
+  "sweatshirt",
   "tank",
-  "shell",
-  "chore_jacket",
+  "overshirt",
+  "light_jacket",
+  "heavy_jacket",
   "denim_jacket",
   "leather_jacket",
   "blazer",
-  "coat",
-  "parka",
-  "puffer_vest",
   "vest",
-  "trousers",
+  "pants",
   "jeans",
   "sweatpants",
   "shorts",
-  "sweat_shorts",
   "shoe",
   "hat",
 ]);
@@ -242,7 +231,7 @@ export const garment = pgTable(
     brand: text(),
     name: text(),
     /**
-     * The colour named at capture ("Navy"), from the fixed list in
+     * The colour named at capture ("Blue"), from the fixed list in
      * lib/colour/declared. Separate from garment_colour, which the extractor
      * fills from pixels: this is what the owner calls it, and it is what the
      * closet filters on until the clusters exist.
@@ -344,9 +333,43 @@ export const job = pgTable(
   ],
 );
 
+// ---------------------------------------------------------------- rig
+
+/**
+ * The marker rig as built, one per owner, saved from Settings. Capture reads
+ * it to solve every new photo's homography; a photo keeps the homography it
+ * was taken with, so changing the rig never moves an existing measurement.
+ * Until a row exists, the `NEXT_PUBLIC_SHEET_*` environment is used.
+ */
+export const rig = pgTable(
+  "rig",
+  {
+    ownerId: uuid().primaryKey(),
+    /** Circle centre to circle centre, as the tape read. */
+    topMm: integer().notNull(),
+    rightMm: integer().notNull(),
+    bottomMm: integer().notNull(),
+    leftMm: integer().notNull(),
+    /** ID 0 to ID 2. Fixes the shape; the four sides alone cannot. */
+    diagMm: integer().notNull(),
+    /** ID 1 to ID 3. Optional, and only checks the other five. */
+    diag2Mm: integer(),
+    /** What the printed black square measures. Null assumes a perfect print. */
+    blackSquareMm: integer(),
+    updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    check(
+      "rig_spans_positive",
+      sql`${t.topMm} > 0 AND ${t.rightMm} > 0 AND ${t.bottomMm} > 0 AND ${t.leftMm} > 0 AND ${t.diagMm} > 0`,
+    ),
+  ],
+);
+
 export type PhotoView = (typeof photoViewEnum.enumValues)[number];
 export type DetailKind = (typeof detailKindEnum.enumValues)[number];
 export type Garment = typeof garment.$inferSelect;
 export type Measurement = typeof measurement.$inferSelect;
 export type Photo = typeof photo.$inferSelect;
 export type Job = typeof job.$inferSelect;
+export type RigRow = typeof rig.$inferSelect;

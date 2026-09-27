@@ -23,8 +23,8 @@ export const metadata = { title: "Measurements" };
 const SILHOUETTE_ORDER: { silhouette: Silhouette; title: string }[] = [
   { silhouette: "top", title: "Short sleeve tops" },
   { silhouette: "long_top", title: "Long sleeve tops" },
-  { silhouette: "vest", title: "Sleeveless tops" },
-  { silhouette: "bottom", title: "Trousers" },
+  { silhouette: "vest", title: "Tanks and vests" },
+  { silhouette: "bottom", title: "Pants" },
   { silhouette: "shorts", title: "Shorts" },
 ];
 

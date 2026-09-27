@@ -10,6 +10,7 @@ import {
   offsetMmToCanvas,
   sheetCanvasCorners,
   sheetVersionFromIds,
+  type Rig,
 } from "./sheet";
 import {
   applyHomography,
@@ -62,6 +63,7 @@ export function detectMarkers(image: ImageData): ArucoMarker[] {
  */
 export function detectSheet(
   source: HTMLCanvasElement | OffscreenCanvas,
+  rig: Rig,
 ): SheetDetection | DetectionFailure {
   const { imageData, scale } = downscaleForDetection(source);
   const markers = detectMarkers(imageData);
@@ -97,7 +99,7 @@ export function detectSheet(
 
   let homography: Matrix3;
   try {
-    homography = getPerspectiveTransform(cornersInImage, sheetCanvasCorners());
+    homography = getPerspectiveTransform(cornersInImage, sheetCanvasCorners(rig));
   } catch {
     return {
       reason: "Markers are collinear — reshoot from straight above.",
@@ -111,7 +113,7 @@ export function detectSheet(
     cornersInImage,
     sheetVersion: sheetVersionFromIds(markerIds),
     markerIds,
-    greyPatchRgb: sampleGreyPatch(source, homography),
+    greyPatchRgb: sampleGreyPatch(source, homography, rig.blackSquareMm),
   };
 }
 
@@ -154,6 +156,7 @@ function downscaleForDetection(source: HTMLCanvasElement | OffscreenCanvas): {
 function sampleGreyPatch(
   source: HTMLCanvasElement | OffscreenCanvas,
   homography: Matrix3,
+  blackSquareMm: number | null,
 ): [number, number, number] | null {
   try {
     const inverse = invertHomography(homography);
@@ -161,7 +164,7 @@ function sampleGreyPatch(
     const inset = 8;
     const centre = applyHomography(
       inverse,
-      offsetMmToCanvas(GREY_PATCH.offsetXMm, GREY_PATCH.offsetYMm),
+      offsetMmToCanvas(GREY_PATCH.offsetXMm, GREY_PATCH.offsetYMm, blackSquareMm),
     );
     const x = Math.round(centre.x - inset / 2);
     const y = Math.round(centre.y - inset / 2);

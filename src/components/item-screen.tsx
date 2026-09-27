@@ -233,8 +233,8 @@ export function ItemScreen({
     </div>
   );
 
-  /* Edit mode takes the diagram's slot and the action row with it: the
-     form where the numbers were, Save and Discard where Measure was. */
+  /* Edit opens over the page rather than in the column: the form wants the
+     add page's width, and the column beside the photo stays as it is. */
   const editor = (
     <GarmentDetails
       garmentId={garment.id}
@@ -322,9 +322,11 @@ export function ItemScreen({
           you can do about them. */}
       <div className="flex flex-col gap-8 sm:col-start-2 sm:self-center lg:col-start-3 lg:row-start-1 lg:sticky lg:top-(--item-aside-top) lg:self-start">
         <div className="lg:hidden">{meta}</div>
-        {details ? editor : info}
-        {details ? null : actions}
+        {info}
+        {actions}
       </div>
+
+      {details ? editor : null}
     </div>
   );
 }

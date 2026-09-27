@@ -7,8 +7,9 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
-import { garment, job, measurement, photo } from "@/db/schema";
+import { garment, job, measurement, photo, rig } from "@/db/schema";
 import { isDeclaredColour } from "@/lib/colour/declared";
+import { quadCheckMm, solveQuadMm } from "@/lib/homography/sheet";
 import { newId } from "@/lib/ids";
 import { absolutePath, cutoutPathFor, tilePathFor } from "@/lib/storage";
 import {
@@ -343,4 +344,90 @@ export async function deleteDetailPhoto(photoId: string) {
   await rm(absolutePath(row.originalPath), { force: true });
 
   if (row.garmentId) revalidatePath(`/item/${row.garmentId}`);
+}
+
+export type RigInput = {
+  topMm: number;
+  rightMm: number;
+  bottomMm: number;
+  leftMm: number;
+  diagMm: number;
+  diag2Mm: number | null;
+  blackSquareMm: number | null;
+};
+
+/** A tape reading, as the whole millimetre the schema stores, or why not. */
+function rigLength(
+  label: string,
+  value: number | null,
+  min: number,
+  max: number,
+): number {
+  const mm = Math.round(Number(value));
+  if (!Number.isFinite(mm) || mm < min || mm > max) {
+    throw new Error(`${label} should be between ${min} and ${max} mm`);
+  }
+  return mm;
+}
+
+/**
+ * Save the rig for every capture from now on.
+ *
+ * A photo keeps the homography it was solved with, so this never moves an
+ * existing measurement. Five distances that cannot form a shape are refused
+ * here: capture would otherwise fall back to a rectangle and measure every
+ * garment from numbers nobody could have taped.
+ */
+export async function saveRig(
+  input: RigInput,
+): Promise<{ ok: true; residualMm: number | null } | { ok: false; error: string }> {
+  let row: Omit<typeof rig.$inferInsert, "ownerId">;
+  try {
+    row = {
+      topMm: rigLength("Top", input.topMm, 100, 5000),
+      rightMm: rigLength("Right", input.rightMm, 100, 5000),
+      bottomMm: rigLength("Bottom", input.bottomMm, 100, 5000),
+      leftMm: rigLength("Left", input.leftMm, 100, 5000),
+      diagMm: rigLength("Diagonal 0 → 2", input.diagMm, 100, 7000),
+      diag2Mm:
+        input.diag2Mm === null
+          ? null
+          : rigLength("Diagonal 1 → 3", input.diag2Mm, 100, 7000),
+      blackSquareMm:
+        input.blackSquareMm === null
+          ? null
+          : rigLength("Black square", input.blackSquareMm, 50, 120),
+    };
+  } catch (error) {
+    return { ok: false, error: (error as Error).message };
+  }
+
+  const quad = {
+    top: row.topMm,
+    right: row.rightMm,
+    bottom: row.bottomMm,
+    left: row.leftMm,
+    diag: row.diagMm,
+    diag2: row.diag2Mm ?? undefined,
+  };
+  try {
+    solveQuadMm(quad);
+  } catch {
+    return {
+      ok: false,
+      error: "Those five distances cannot form a shape. Re-check the tape.",
+    };
+  }
+
+  await db
+    .insert(rig)
+    .values({ ownerId: OWNER_ID, ...row })
+    .onConflictDoUpdate({
+      target: rig.ownerId,
+      set: { ...row, updatedAt: sql`now()` },
+    });
+
+  revalidatePath("/settings");
+  revalidatePath("/capture");
+  return { ok: true, residualMm: quadCheckMm(quad) };
 }

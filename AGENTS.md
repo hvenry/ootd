@@ -97,8 +97,9 @@ docs/                  plan, architecture, model, design, decisions, features
 - `next/image` is not used: sharp balloons memory on glibc.
 - A phone reaches `next dev` over the LAN. `allowedDevOrigins` in
   `next.config.ts` must cover it, or the client bundle silently never runs.
-- `NEXT_PUBLIC_*` rig spans are baked in at build time. Rebuild the app image
-  after changing them.
+- The rig spans live in the `rig` table, saved from Settings and read per
+  request (`src/lib/rig.ts`). `NEXT_PUBLIC_SHEET_*` is only the fallback until
+  one is saved, and that fallback is baked in at build time.
 - The app and worker containers both run as UID 1000 and share `./storage`.
   On Linux that ownership is enforced.
 

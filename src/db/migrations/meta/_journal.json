@@ -155,6 +155,62 @@
       "when": 1790443817027,
       "tag": "0021_added_means_photographed",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790519912059,
+      "tag": "0022_rig",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790520524941,
+      "tag": "0023_jacket",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790521494434,
+      "tag": "0024_top_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790521765847,
+      "tag": "0025_drop_sweat_shorts",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790521876615,
+      "tag": "0026_drop_fleece",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790521980536,
+      "tag": "0027_heavy_jacket",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790522061721,
+      "tag": "0028_pants",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790522153272,
+      "tag": "0029_twelve_colours",
+      "breakpoints": true
     }
   ]
 }
