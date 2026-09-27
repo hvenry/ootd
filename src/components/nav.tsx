@@ -1,10 +1,9 @@
-import Link from "next/link";
 
 import { Plus } from "@phosphor-icons/react/dist/ssr";
 
-import { BRAND } from "@/config/brand";
 import { NavCompact } from "@/components/nav-compact";
 import { NavLink } from "@/components/nav-link";
+import { Wordmark } from "@/components/wordmark";
 import { NavSearch } from "@/components/nav-search";
 import { StatusLink } from "@/components/status-link";
 import { Suspense } from "react";
@@ -54,9 +53,7 @@ export function Nav() {
           </Suspense>
         </nav>
 
-        <Link href="/" className="wordmark shrink-0">
-          {BRAND}
-        </Link>
+        <Wordmark className="shrink-0" />
 
         <div className="flex flex-1 items-center justify-end gap-6">
           <StatusLink />

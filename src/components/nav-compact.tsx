@@ -5,8 +5,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 
-import { BRAND } from "@/config/brand";
 import { NavLink } from "@/components/nav-link";
+import { Wordmark } from "@/components/wordmark";
 import { SearchPopover } from "@/components/search-popover";
 import { Sheet } from "@/components/sheet";
 import { StatusCount, StatusLink } from "@/components/status-link";
@@ -60,9 +60,7 @@ export function NavCompact() {
           </div>
         </div>
 
-        <Link href="/" className="wordmark text-center">
-          {BRAND}
-        </Link>
+        <Wordmark className="text-center" />
 
         <div className="flex items-center justify-end gap-4">
           <StatusCount />
