@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { BackToCloset, useFromCloset } from "@/components/back-to-closet";
 import { GarmentDetails } from "@/components/garment-details";
 import { GarmentSchematic } from "@/components/garment-schematic";
 import { PhotoStrip } from "@/components/photo-strip";
@@ -82,6 +83,7 @@ export function ItemScreen({
 }) {
   const router = useRouter();
   const { toast } = useActivity();
+  const fromCloset = useFromCloset(garment.id);
   const [index, setIndex] = useState(0);
   const labels = photoLabels(photos);
   const shown = photos[Math.min(index, photos.length - 1)];
@@ -250,83 +252,89 @@ export function ItemScreen({
   );
 
   return (
-    /* Phone: image, then meta, actions, info stacked. From 640px: image
+    <>
+      {/* Desktop keeps it in the left column, above the brand, so the photo
+        column still fits the viewport exactly. */}
+      <BackToCloset fromCloset={fromCloset} className="mb-6 lg:hidden" />
+      {/* Phone: image, then meta, actions, info stacked. From 640px: image
        left, the three blocks in a right column, halves first and then a
        3:2 split once there is room. Desktop: three columns with the
        image in the middle and the text blocks parked at the same height
-       either side of it, as a product page does. */
-    <div className="grid gap-10 sm:grid-cols-2 sm:gap-x-8 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:gap-x-12">
-      {/* On desktop the column is exactly the viewport minus the header
+       either side of it, as a product page does. */}
+      <div className="grid gap-10 sm:grid-cols-2 sm:gap-x-8 md:grid-cols-[minmax(0,3fr)_minmax(0,2fr)] md:gap-x-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)_minmax(0,1fr)] lg:gap-x-12">
+        {/* On desktop the column is exactly the viewport minus the header
           offset above and main's bottom padding below, and the strip takes
           what the pager leaves, so the page does not scroll. */}
-      <div className="flex flex-col lg:col-start-2 lg:row-start-1 lg:h-[calc(100dvh-var(--header-h)-var(--main-pb))]">
-        <PhotoStrip
-          photos={photos.map((p, i) => ({
-            id: p.id,
-            src: p.src,
-            fallback: p.fallback,
-            crop: p.crop,
-            alt: labels[i],
-          }))}
-          index={index}
-          onIndexChange={setIndex}
-          className="lg:min-h-0 lg:flex-1"
-          imgClassName="aspect-[3/4] lg:aspect-auto lg:h-full"
-        />
+        <div className="flex flex-col lg:col-start-2 lg:row-start-1 lg:h-[calc(100dvh-var(--header-h)-var(--main-pb))]">
+          <PhotoStrip
+            photos={photos.map((p, i) => ({
+              id: p.id,
+              src: p.src,
+              fallback: p.fallback,
+              crop: p.crop,
+              alt: labels[i],
+            }))}
+            index={index}
+            onIndexChange={setIndex}
+            className="lg:min-h-0 lg:flex-1"
+            imgClassName="aspect-[3/4] lg:aspect-auto lg:h-full"
+          />
 
-        {photos.length > 1 ? (
-          <div className="mt-4 flex shrink-0 flex-wrap justify-center gap-x-6 gap-y-2">
-            {photos.map((p, i) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => setIndex(i)}
-                aria-pressed={index === i}
-                className="label tab"
-              >
-                {labels[i]}
-              </button>
-            ))}
-          </div>
-        ) : null}
+          {photos.length > 1 ? (
+            <div className="mt-4 flex shrink-0 flex-wrap justify-center gap-x-6 gap-y-2">
+              {photos.map((p, i) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setIndex(i)}
+                  aria-pressed={index === i}
+                  className="label tab"
+                >
+                  {labels[i]}
+                </button>
+              ))}
+            </div>
+          ) : null}
 
-        {/* A close-up can go, and another can be added. Re-cutting is not
+          {/* A close-up can go, and another can be added. Re-cutting is not
             offered here: the cutout is an internal step, and the measure
             screen is where a bad one gets in the way. */}
-        <div className="mt-3 flex shrink-0 items-baseline justify-center gap-6 text-12">
-          {shown?.view === "detail" ? (
-            <button
-              type="button"
+          <div className="mt-3 flex shrink-0 items-baseline justify-center gap-6 text-12">
+            {shown?.view === "detail" ? (
+              <button
+                type="button"
+                className="link-text text-fg3"
+                disabled={removing}
+                onClick={() => onRemoveDetail(shown.id)}
+              >
+                {removing ? "Removing…" : "Remove"}
+              </button>
+            ) : null}
+            <Link
+              href={`/capture?garment=${garment.id}&view=detail`}
               className="link-text text-fg3"
-              disabled={removing}
-              onClick={() => onRemoveDetail(shown.id)}
             >
-              {removing ? "Removing…" : "Remove"}
-            </button>
-          ) : null}
-          <Link
-            href={`/capture?garment=${garment.id}&view=detail`}
-            className="link-text text-fg3"
-          >
-            Add detail
-          </Link>
+              Add detail
+            </Link>
+          </div>
         </div>
-      </div>
 
-      {/* Desktop only: brand and name on the left of the photo. */}
-      <div className="hidden lg:col-start-1 lg:row-start-1 lg:sticky lg:top-(--item-aside-top) lg:block lg:self-start">
-        {meta}
-      </div>
+        {/* Desktop only: brand and name on the left of the photo. */}
+        <div className="hidden lg:col-start-1 lg:row-start-1 lg:sticky lg:top-(--item-aside-top) lg:block lg:self-start">
+          <BackToCloset fromCloset={fromCloset} className="mb-8" />
+          {meta}
+        </div>
 
-      {/* The numbers always sit to the right of the garment, above what
+        {/* The numbers always sit to the right of the garment, above what
           you can do about them. */}
-      <div className="flex flex-col gap-8 sm:col-start-2 sm:self-center lg:col-start-3 lg:row-start-1 lg:sticky lg:top-(--item-aside-top) lg:self-start">
-        <div className="lg:hidden">{meta}</div>
-        {info}
-        {actions}
-      </div>
+        <div className="flex flex-col gap-8 sm:col-start-2 sm:self-center lg:col-start-3 lg:row-start-1 lg:sticky lg:top-(--item-aside-top) lg:self-start">
+          <div className="lg:hidden">{meta}</div>
+          {info}
+          {actions}
+        </div>
 
-      {details ? editor : null}
-    </div>
+        {details ? editor : null}
+      </div>
+    </>
   );
 }

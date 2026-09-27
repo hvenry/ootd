@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { X } from "@phosphor-icons/react";
 
 import { Sheet, SheetList, SheetRow } from "@/components/sheet";
@@ -31,20 +31,22 @@ export type ClosetItem = {
   createdAt: string;
 };
 
-type Sort = "latest" | "oldest" | "brand";
+type Sort = "relevance" | "latest" | "oldest" | "brand";
 
 const SORTS: readonly (readonly [Sort, string])[] = [
+  ["relevance", "Best match"],
   ["latest", "Latest"],
   ["oldest", "Oldest"],
   ["brand", "Brand: A to Z"],
 ];
 
-const toggle = (set: Set<string>, value: string) => {
-  const next = new Set(set);
-  if (next.has(value)) next.delete(value);
-  else next.add(value);
-  return next;
-};
+const isSort = (v: string | null): v is Sort =>
+  SORTS.some(([value]) => value === v);
+
+/** Where the item page's Back returns to: the closet as it was last left. */
+export const CLOSET_HREF_KEY = "ootd:closet-href";
+/** Set when a tile is opened, so the item page knows history holds the closet. */
+export const FROM_CLOSET_KEY = "ootd:from-closet";
 
 export function ClosetBrowser({
   items,
@@ -55,19 +57,66 @@ export function ClosetBrowser({
   prompt?: React.ReactNode;
 }) {
   const params = useSearchParams();
-  const router = useRouter();
-  // Filters can arrive in the URL: an item page links its brand, category
-  // and colour back here so "what else like this?" is one tap.
-  const seed = (key: string) => new Set(params.getAll(key).filter(Boolean));
-  const [categories, setCategories] = useState<Set<string>>(() =>
-    seed("category"),
-  );
-  const [brands, setBrands] = useState<Set<string>>(() => seed("brand"));
-  const [colours, setColours] = useState<Set<string>>(() => seed("colour"));
-  const [sort, setSort] = useState<Sort>("latest");
+  const paramsKey = params.toString();
+  // Filters, sort and search all live in the URL, so Back from an item
+  // returns to the closet as it was left, a refresh keeps it, and an item
+  // page can link "what else like this?" as a plain href.
+  const { categories, brands, colours } = useMemo(() => {
+    const read = (key: string) => new Set(params.getAll(key).filter(Boolean));
+    return {
+      categories: read("category"),
+      brands: read("brand"),
+      colours: read("colour"),
+    };
+  }, [params]);
+  const query = params.get("q") ?? "";
+  const searching = query.trim().length > 0;
+  // A search ranks by match unless a sort is picked; best match means
+  // nothing without a search, so it falls back to latest.
+  const defaultSort: Sort = searching ? "relevance" : "latest";
+  const asked = params.get("sort");
+  const sort: Sort =
+    isSort(asked) && (asked !== "relevance" || searching) ? asked : defaultSort;
+  const sorts = SORTS.filter(([value]) => value !== "relevance" || searching);
   /** Which full-screen panel is open on small screens */
   const [panel, setPanel] = useState<"refine" | "sort" | null>(null);
-  const query = params.get("q") ?? "";
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(
+        CLOSET_HREF_KEY,
+        `/${paramsKey ? `?${paramsKey}` : ""}`,
+      );
+    } catch {}
+  }, [paramsKey]);
+
+  // The native history call rather than the router: it updates
+  // useSearchParams without a server round trip on every tap, and replacing
+  // rather than pushing keeps Back meaning "leave the closet".
+  function update(edit: (next: URLSearchParams) => void) {
+    const next = new URLSearchParams(paramsKey);
+    edit(next);
+    const qs = next.toString();
+    window.history.replaceState(null, "", `/${qs ? `?${qs}` : ""}`);
+  }
+
+  function toggle(key: "category" | "brand" | "colour", value: string) {
+    update((next) => {
+      const values = next.getAll(key);
+      next.delete(key);
+      const kept = values.includes(value)
+        ? values.filter((v) => v !== value)
+        : [...values, value];
+      for (const v of kept) next.append(key, v);
+    });
+  }
+
+  function setSort(value: Sort) {
+    update((next) => {
+      if (value === defaultSort) next.delete("sort");
+      else next.set("sort", value);
+    });
+  }
 
   const allColours = useMemo(
     () =>
@@ -98,16 +147,16 @@ export function ClosetBrowser({
   );
 
   const visible = useMemo(() => {
-    const filtered = items.filter(
+    let filtered = items.filter(
       (i) =>
         (categories.size === 0 || categories.has(i.category)) &&
         (brands.size === 0 || brands.has(i.brand ?? "Unbranded")) &&
         (colours.size === 0 ||
           (i.declaredColour != null && colours.has(i.declaredColour))),
     );
-    // A search ranks by match quality and overrides the sort; anything that
-    // can be said about a garment is in its haystack.
-    if (query.trim()) {
+    // Anything that can be said about a garment is in its haystack. A
+    // search narrows, then ranks only if no other sort was asked for.
+    if (searching) {
       const scored = filtered.flatMap((i) => {
         const hay = [
           i.brand ?? "Unbranded",
@@ -119,8 +168,11 @@ export function ClosetBrowser({
         const score = fuzzyScore(query, hay);
         return score === null ? [] : [{ i, score }];
       });
-      scored.sort((a, b) => b.score - a.score);
-      return scored.map((s) => s.i);
+      if (sort === "relevance") {
+        scored.sort((a, b) => b.score - a.score);
+        return scored.map((s) => s.i);
+      }
+      filtered = scored.map((s) => s.i);
     }
     const sorted = [...filtered];
     sorted.sort((a, b) => {
@@ -134,26 +186,19 @@ export function ClosetBrowser({
       }
     });
     return sorted;
-  }, [items, categories, brands, colours, sort, query]);
+  }, [items, categories, brands, colours, sort, query, searching]);
 
   const activeCount = categories.size + brands.size + colours.size;
 
-  // Search lives in the URL, beside the header's search box; filters are
-  // this screen's own state. Clearing one leaves the other's params alone.
   function clearQuery() {
-    const next = new URLSearchParams(params.toString());
-    next.delete("q");
-    const qs = next.toString();
-    router.replace(`/${qs ? `?${qs}` : ""}`);
+    update((next) => next.delete("q"));
   }
 
+  // The sort is a preference, not a filter, so it survives Clear all.
   function clearAll() {
-    setCategories(new Set());
-    setBrands(new Set());
-    setColours(new Set());
-    // Filters that arrived from an item page's links are in the URL too;
-    // drop them with the search so a refresh does not bring them back.
-    if (params.toString()) router.replace("/");
+    update((next) => {
+      for (const key of ["q", "category", "brand", "colour"]) next.delete(key);
+    });
   }
 
   const active: ActiveFilter[] = [
@@ -163,18 +208,18 @@ export function ClosetBrowser({
     ...[...categories].map((c) => ({
       key: `category-${c}`,
       label: CATEGORY_LABELS[c as Category] ?? c,
-      onRemove: () => setCategories((s) => toggle(s, c)),
+      onRemove: () => toggle("category", c),
     })),
     ...[...brands].map((b) => ({
       key: `brand-${b}`,
       label: b,
-      onRemove: () => setBrands((s) => toggle(s, b)),
+      onRemove: () => toggle("brand", b),
     })),
     ...[...colours].map((c) => ({
       key: `colour-${c}`,
       label: c,
       swatch: declaredHex(c),
-      onRemove: () => setColours((s) => toggle(s, c)),
+      onRemove: () => toggle("colour", c),
     })),
   ];
 
@@ -186,7 +231,7 @@ export function ClosetBrowser({
           label={CATEGORY_LABELS[c]}
           uppercase
           selected={categories.has(c)}
-          onClick={() => setCategories((s) => toggle(s, c))}
+          onClick={() => toggle("category", c)}
         />
       ))}
     </FilterGroup>
@@ -199,7 +244,7 @@ export function ClosetBrowser({
           key={b}
           label={b}
           selected={brands.has(b)}
-          onClick={() => setBrands((s) => toggle(s, b))}
+          onClick={() => toggle("brand", b)}
         />
       ))}
     </FilterGroup>
@@ -214,7 +259,7 @@ export function ClosetBrowser({
             label={c}
             swatch={declaredHex(c)}
             selected={colours.has(c)}
-            onClick={() => setColours((s) => toggle(s, c))}
+            onClick={() => toggle("colour", c)}
           />
         ))}
       </FilterGroup>
@@ -222,7 +267,7 @@ export function ClosetBrowser({
 
   const sortList = (
     <FilterGroup heading="Sort">
-      {SORTS.map(([value, label]) => (
+      {sorts.map(([value, label]) => (
         <FilterRow
           key={value}
           label={label}
@@ -264,7 +309,7 @@ export function ClosetBrowser({
               type="button"
               className="chip shrink-0 whitespace-nowrap"
               aria-pressed={brands.has(b)}
-              onClick={() => setBrands((s) => toggle(s, b))}
+              onClick={() => toggle("brand", b)}
             >
               {b}
             </button>
@@ -315,7 +360,7 @@ export function ClosetBrowser({
       >
         {panel === "sort" ? (
           <SheetList>
-            {SORTS.map(([value, label]) => (
+            {sorts.map(([value, label]) => (
               <SheetRow
                 key={value}
                 label={label}
@@ -335,9 +380,9 @@ export function ClosetBrowser({
             selectedCategories={categories}
             selectedBrands={brands}
             selectedColours={colours}
-            onCategory={(c) => setCategories((s) => toggle(s, c))}
-            onBrand={(b) => setBrands((s) => toggle(s, b))}
-            onColour={(c) => setColours((s) => toggle(s, c))}
+            onCategory={(c) => toggle("category", c)}
+            onBrand={(b) => toggle("brand", b)}
+            onColour={(c) => toggle("colour", c)}
           />
         )}
       </Sheet>
@@ -426,6 +471,11 @@ function Grid({
           <Link
             href={`/item/${item.id}`}
             className="block"
+            onClick={() => {
+              try {
+                sessionStorage.setItem(FROM_CLOSET_KEY, item.id);
+              } catch {}
+            }}
             draggable={false}
             /* Otherwise a swipe on the tile also starts the browser's own
                drag of the link, with a ghost URL under the cursor. */
