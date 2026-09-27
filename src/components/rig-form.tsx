@@ -154,8 +154,8 @@ export function RigForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="max-w-lg">
-      <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+    <form onSubmit={onSubmit}>
+      <div className="grid max-w-lg grid-cols-2 gap-x-8 gap-y-6">
         {FIELDS.map((field) => (
           <label key={field.key} className="block">
             <span className="label text-fg2">{field.label}</span>
@@ -190,7 +190,7 @@ export function RigForm({
         </p>
       ) : null}
 
-      <div className="mt-6 flex flex-wrap items-baseline gap-x-6 gap-y-3">
+      <div className="mt-6 flex flex-col items-center gap-3">
         <button
           type="submit"
           className="btn-primary px-12 py-4"
@@ -198,11 +198,12 @@ export function RigForm({
         >
           {pending ? "Saving" : "Update rig"}
         </button>
-        <span className="text-fg3 text-12">
-          {isSaved
-            ? "Applies to photos taken from now on. Existing measurements stay as they are."
-            : "From the environment until you save."}
-        </span>
+        {isSaved ? (
+          <span className="text-fg3 text-center text-12">
+            Applies to photos taken from now on. Existing measurements stay as
+            they are.
+          </span>
+        ) : null}
       </div>
     </form>
   );

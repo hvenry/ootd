@@ -38,10 +38,11 @@ smaller. `.label` is 12px uppercase with no tracking, and `.wordmark` (26px, 600
 - **Radius 0** everywhere except `.colour-dot`.
 - **No shadows, cards, fills, gradients or shimmer.** Images sit unframed.
 - Borders are 1px `--rule`, and `.rule-top` tops sections and lists.
-- The only boxed things are `.chip`, `.split-bar`, toasts and outlined
-  buttons.
+- The only boxed things are `.chip`, `.split-bar`, toasts, outlined
+  buttons and the rig form in Settings, which every photo's scale hangs on.
 - `.btn-primary` is black with white uppercase text, and turns into a grey
-  outline when disabled. There is one per screen. `.btn-secondary` is the same
+  outline when disabled. There is one per screen, except Settings, where
+  Update rig and Download PDF are separate jobs. `.btn-secondary` is the same
   button unfilled, for the move that undoes it.
 - `.action-row` pairs the filled button with its dismissal: a 50/50 grid
   with the second control outlined, capped at 24rem. It sits at the start of
