@@ -6,8 +6,7 @@ RUN corepack enable
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 
-# Full source and every dependency, dev ones included. The build runs here,
-# and so does `migrate` in docker-compose.yml, which needs drizzle-kit.
+# Full source and every dependency, dev ones included. The build runs here.
 FROM deps AS builder
 COPY . .
 # NEXT_PUBLIC_* are inlined into the client bundle when it is built, so the
@@ -30,6 +29,16 @@ ENV NEXT_PUBLIC_SHEET_TOP_MM=$NEXT_PUBLIC_SHEET_TOP_MM \
     NEXT_TELEMETRY_DISABLED=1
 RUN pnpm build
 
+# The migration runner's own dependencies, at the versions package.json names.
+# Standalone output keeps only what the server imports, and the server never
+# imports the migrator.
+FROM node:24-alpine AS migrator
+WORKDIR /migrate
+COPY package.json /tmp/package.json
+RUN npm install --omit=dev --no-save --no-package-lock --no-fund --no-audit \
+      "drizzle-orm@$(node -p "require('/tmp/package.json').dependencies['drizzle-orm']")" \
+      "pg@$(node -p "require('/tmp/package.json').dependencies.pg")"
+
 FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
@@ -39,6 +48,9 @@ ENV NODE_ENV=production \
 RUN addgroup -S app && adduser -S app -G app
 COPY --from=builder --chown=app:app /app/.next/standalone ./
 COPY --from=builder --chown=app:app /app/.next/static ./.next/static
+COPY --from=migrator --chown=app:app /migrate/node_modules ./migrate/node_modules
+COPY --chown=app:app scripts/migrate.mjs ./migrate/migrate.mjs
+COPY --chown=app:app src/db/migrations ./migrate/migrations
 USER app
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["sh", "-c", "node migrate/migrate.mjs && exec node server.js"]

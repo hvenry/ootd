@@ -13,6 +13,7 @@ import {
 } from "@/db/schema";
 import { parseCalibration } from "@/lib/capture";
 import { newId } from "@/lib/ids";
+import { tileScaleFor, type Category } from "@/lib/measure/templates";
 import { contentHash, writeOriginal } from "@/lib/storage";
 
 export const runtime = "nodejs";
@@ -65,7 +66,7 @@ export async function POST(
   }
 
   const [owned] = await db
-    .select({ id: garment.id })
+    .select({ id: garment.id, category: garment.category })
     .from(garment)
     .where(and(eq(garment.id, garmentId), eq(garment.ownerId, OWNER_ID)));
   if (!owned) {
@@ -140,6 +141,7 @@ export async function POST(
         sheetQuad: calibration.cornersInImage ?? null,
         homography: calibration.m,
         pxPerMm: calibration.pxPerMm,
+        tileScale: tileScaleFor(owned.category as Category),
       },
       contentHash: contentHash("cutout", originalPath),
     });

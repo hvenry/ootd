@@ -75,3 +75,26 @@ export function contentHash(...parts: string[]): string {
 export function tilePathFor(cutoutPath: string): string {
   return cutoutPath.replace(/\.png$/, "_tile.png");
 }
+
+/** Where the garment sits inside its tile, as fractions of the tile. */
+export type TileCrop = { x: number; y: number; w: number; h: number };
+
+/**
+ * The garment's own box within its tile, as the worker recorded it beside
+ * the cutout's bounds.
+ *
+ * Tiles share a scale so the closet shows garments at their relative sizes,
+ * which leaves a small garment small in its tile. Wherever one is shown on
+ * its own, cropping to this box lets it fill the space instead. Null for a
+ * tile written before the worker recorded it.
+ */
+export function tileCrop(bounds: unknown): TileCrop | null {
+  const tile = (bounds as { tile?: Partial<TileCrop> } | null)?.tile;
+  if (!tile) return null;
+  const { x, y, w, h } = tile;
+  return [x, y, w, h].every((v) => typeof v === "number" && Number.isFinite(v)) &&
+    w! > 0 &&
+    h! > 0
+    ? { x: x!, y: y!, w: w!, h: h! }
+    : null;
+}

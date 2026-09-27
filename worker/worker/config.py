@@ -56,6 +56,14 @@ STORAGE_ROOT = _storage_root()
 # chroma is the default because it needs no model and no download.
 CUTOUT_PROVIDER = os.environ.get("CUTOUT_PROVIDER", "chroma")
 
+# auto | cuda | mps | cpu. auto takes the best available; naming one makes a
+# missing device an error instead of a silent fall back to the CPU.
+CUTOUT_DEVICE = os.environ.get("CUTOUT_DEVICE", "auto").strip().lower()
+
+# Unload a model after this long without a job, returning its memory to
+# whatever else shares the GPU. 0 keeps it loaded for the life of the worker.
+MODEL_KEEP_ALIVE_SECONDS = float(os.environ.get("MODEL_KEEP_ALIVE_SECONDS", "0"))
+
 POLL_INTERVAL_SECONDS = float(os.environ.get("POLL_INTERVAL_SECONDS", "2"))
 MAX_ATTEMPTS = int(os.environ.get("MAX_ATTEMPTS", "3"))
 

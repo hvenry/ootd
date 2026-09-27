@@ -579,6 +579,14 @@ export function isBottomSilhouette(silhouette: Silhouette | null): boolean {
   return silhouette === "bottom" || silhouette === "shorts";
 }
 
+/**
+ * Which shared scale the worker draws a garment's tile at. Outerwear sits
+ * with the tops: laid flat, a jacket is a top's shape and size.
+ */
+export function tileScaleFor(category: Category): "top" | "bottom" {
+  return isBottomSilhouette(silhouetteFor(category)) ? "bottom" : "top";
+}
+
 /** Tops of every sleeve length are one group to the closet and the add flow. */
 export function isTopSilhouette(silhouette: Silhouette | null): boolean {
   return (

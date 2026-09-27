@@ -14,8 +14,11 @@ const nextConfig: NextConfig = {
    * Wildcards match per dot-separated segment, so these cover a DHCP lease
    * moving. Both ranges are entirely private; 172.16/12 is left out because
    * `172.*.*.*` would also allow public addresses. Development only.
+   *
+   * ootd.hvenry.com is the homelab's dev server behind Caddy, which is how
+   * the phone reaches it over Tailscale while the app is being iterated on.
    */
-  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "*.local"],
+  allowedDevOrigins: ["192.168.*.*", "10.*.*.*", "*.local", "ootd.hvenry.com"],
 };
 
 export default nextConfig;

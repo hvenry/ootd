@@ -11,8 +11,12 @@ services:
     build:
       args:
         EXTRAS: "[local]"
-        # CUDA 12.6 wheels: bundle their own runtime, need only the driver.
-        TORCH_INDEX: https://download.pytorch.org/whl/cu126
+        # CUDA 12.8 wheels: bundle their own runtime, need only the driver.
+        TORCH_INDEX: https://download.pytorch.org/whl/cu128
+    environment:
+      # Fail a job loudly rather than fall back to a 35 s CPU cut when the
+      # GPU goes missing (a driver upgrade without a reboot is the usual way).
+      CUTOUT_DEVICE: cuda
     deploy:
       resources:
         reservations:

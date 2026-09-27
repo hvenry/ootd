@@ -99,7 +99,7 @@ def set_cutout_path(
     view: str,
     path: str,
     provider: str,
-    bounds: dict[str, int] | None = None,
+    bounds: dict[str, object] | None = None,
 ) -> str | bool | None:
     """
     The cutout belongs to the photo. The garment also carries the *front*

@@ -3,7 +3,7 @@ Chroma key plus a flood fill inward from the sheet edge.
 
 On an evenly lit sheet this gets most garments in milliseconds with no model
 and no download, which is why it is worth having: it is the provider that lets
-you start archiving before 3.5GB of weights have finished arriving.
+you start archiving before 450MB of weights have finished arriving.
 
 The background to remove is the *sheet*, not whatever surrounds the photo, and
 capture already knows exactly where the sheet is — the four marker centres come

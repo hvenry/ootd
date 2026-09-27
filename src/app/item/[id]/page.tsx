@@ -5,7 +5,7 @@ import { ItemScreen } from "@/components/item-screen";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { knownBrands } from "@/lib/brands";
-import { tilePathFor } from "@/lib/storage";
+import { tileCrop, tilePathFor } from "@/lib/storage";
 import { garment, measurement, photo, type PhotoView } from "@/db/schema";
 import {
   silhouetteFor,
@@ -83,6 +83,7 @@ export default async function ItemPage({
           detailKind: p.detailKind,
           src: `/api/media/${p.cutoutPath ? tilePathFor(p.cutoutPath) : p.originalPath}`,
           fallback: `/api/media/${p.cutoutPath ?? p.originalPath}`,
+          crop: p.cutoutPath ? tileCrop(p.cutoutBounds) : null,
         }))}
       dimensions={templateFor(category)}
       silhouette={silhouetteFor(category)}

@@ -2,7 +2,7 @@
 BiRefNet (MIT) — the default local cutout.
 
 This is *segmentation*: it decides which of the photograph's existing pixels
-are garment. It generates nothing. Weights are ~3.5GB from HuggingFace on the
+are garment. It generates nothing. Weights are ~450MB from HuggingFace on the
 first job — free, no token, no gate — and a GPU is optional; CPU is slow but
 entirely workable for one garment at a time.
 
@@ -14,6 +14,7 @@ docs/DECISIONS.md for the full forbidden list.
 from __future__ import annotations
 
 import logging
+import time
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -21,6 +22,7 @@ import numpy as np
 from PIL import Image, ImageOps
 from scipy import ndimage
 
+from .. import config
 from .chroma import OVERHANG_X, OVERHANG_Y, _sheet_mask
 
 log = logging.getLogger(__name__)
@@ -47,10 +49,11 @@ class BiRefNetProvider:
 
     def __init__(self) -> None:
         # Loaded on first use, not at import: the worker must start, answer
-        # its health check and claim jobs without waiting on 3.5GB.
+        # its health check and claim jobs without waiting on 450MB.
         self._model = None
         self._device = None
         self._transform = None
+        self._last_used = 0.0
 
     def _load(self) -> None:
         if self._model is not None:
@@ -67,14 +70,14 @@ class BiRefNetProvider:
                 "CUTOUT_PROVIDER=chroma (no download) or replicate."
             ) from exc
 
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
+        # No cudnn.benchmark, though the input size is fixed. Measured on a
+        # 3070: it made the first cut after a load 28 s and peak at 5.9 GB
+        # while trying algorithms, for no gain after (0.86 s either way,
+        # 1.7 GB peak without it). On a GPU shared with an LLM that spike is
+        # an out-of-memory.
+        device = _pick_device(torch)
 
-        log.info("loading %s on %s (first run downloads ~3.5GB)", MODEL_ID, device)
+        log.info("loading %s on %s (first run downloads ~450MB)", MODEL_ID, device)
         model = AutoModelForImageSegmentation.from_pretrained(
             MODEL_ID, revision=MODEL_REVISION, trust_remote_code=True
         )
@@ -98,7 +101,39 @@ class BiRefNetProvider:
                 transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
             ]
         )
-        log.info("model ready on %s", device)
+        if device == "cuda":
+            log.info(
+                "model ready on cuda: %s, torch %s, CUDA %s, %.2f GB allocated",
+                torch.cuda.get_device_name(0),
+                torch.__version__,
+                torch.version.cuda,
+                torch.cuda.memory_allocated() / 1e9,
+            )
+        else:
+            log.info("model ready on %s", device)
+
+    def release_if_idle(self) -> None:
+        """
+        Give the GPU back after MODEL_KEEP_ALIVE_SECONDS without a cut.
+
+        On a GPU shared with an LLM and a transcoder, a model held resident
+        for a closet photographed a few times a week is VRAM nobody else can
+        use. Reloading from the local cache costs seconds, not the download.
+        """
+        keep_alive = config.MODEL_KEEP_ALIVE_SECONDS
+        if self._model is None or keep_alive <= 0:
+            return
+        if time.monotonic() - self._last_used < keep_alive:
+            return
+
+        import torch
+
+        device = self._device
+        self._model = None
+        self._device = None
+        if device == "cuda":
+            torch.cuda.empty_cache()
+        log.info("unloaded %s after %ds idle", MODEL_ID, keep_alive)
 
     def cut(
         self,
@@ -121,10 +156,16 @@ class BiRefNetProvider:
         if self._device == "cuda":
             tensor = tensor.half()
 
-        with torch.no_grad():
-            prediction = self._model(tensor)[-1].sigmoid().cpu()
+        with torch.inference_mode():
+            prediction = self._model(tensor)[-1].sigmoid().float().cpu()
+        del tensor
+        if self._device == "cuda":
+            # PyTorch keeps freed activations cached for its own reuse, which
+            # to Ollama and Jellyfin looks the same as memory still in use.
+            torch.cuda.empty_cache()
+        self._last_used = time.monotonic()
 
-        mask = prediction[0].squeeze().float().numpy()
+        mask = prediction[0].squeeze().numpy()
         alpha = Image.fromarray((mask * 255).astype(np.uint8), mode="L").resize(
             image.size, Image.Resampling.BILINEAR
         )
@@ -137,6 +178,35 @@ class BiRefNetProvider:
         return destination
 
 
+def _pick_device(torch) -> str:
+    """
+    CUTOUT_DEVICE=auto takes the best available; naming one makes it required.
+
+    Auto is right on a laptop. On a server given a GPU it is a trap: when the
+    driver breaks (a host upgrade not yet followed by a reboot does it),
+    CUDA quietly reports unavailable and every cut takes 35 s on the CPU
+    instead of under one. Naming cuda turns that into a failed job that
+    says why.
+    """
+    wanted = config.CUTOUT_DEVICE
+    if wanted == "auto":
+        if torch.cuda.is_available():
+            return "cuda"
+        if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+    if wanted == "cuda" and not torch.cuda.is_available():
+        if torch.version.cuda is None:
+            reason = "this torch build is CPU-only; rebuild with a CUDA TORCH_INDEX"
+        else:
+            reason = (
+                "no usable GPU; check the container was given one and that "
+                "`nvidia-smi` works on the host"
+            )
+        raise RuntimeError(f"CUTOUT_DEVICE=cuda but {reason}")
+    return wanted
+
+
 def _keep_garment(alpha: Image.Image, sheet_quad: Sequence[Any] | None) -> Image.Image:
     """
     Keep the garment, and only the garment.
@@ -144,10 +214,15 @@ def _keep_garment(alpha: Image.Image, sheet_quad: Sequence[Any] | None) -> Image
     BiRefNet cuts out whatever in the frame looks like the subject, and it
     does not know about the rig. Shot standing over the garment, the
     photographer's own feet at the bottom of the frame came back as part of
-    the cutout. The garment is laid inside the four markers, so: nothing
-    outside the rig (with the same overhang the chroma key allows, since
-    hems and waistbands run past the markers), then the largest piece, plus
-    any other substantial piece centred on the rig.
+    the cutout. The garment is laid inside the four markers, so the rig
+    decides which pieces are the garment: the one with the most of itself
+    inside the rig (with the same overhang the chroma key allows), plus any
+    other substantial piece centred on the rig.
+
+    The rig only chooses pieces; it never cuts them. Clipping to it
+    guillotined a denim jacket's cuff, laid with its sleeves wider than the
+    markers, in a straight line at the side margin. A kept piece is kept
+    whole, and the feet, a separate piece off the rig, are still dropped.
     """
     scale = min(1.0, KEEP_MAX_DIMENSION / max(alpha.size))
     size = (max(1, round(alpha.width * scale)), max(1, round(alpha.height * scale)))
@@ -156,17 +231,21 @@ def _keep_garment(alpha: Image.Image, sheet_quad: Sequence[Any] | None) -> Image
 
     allowed = _sheet_mask(sheet_quad, scale, (h, w), 0, OVERHANG_X, OVERHANG_Y)
     rig = _sheet_mask(sheet_quad, scale, (h, w), 0)
-    labels, count = ndimage.label(small & allowed)
+    labels, count = ndimage.label(small)
     if count == 0:
         return alpha
 
-    areas = ndimage.sum(np.ones_like(labels), labels, range(1, count + 1))
-    largest = float(areas.max())
-    centres = ndimage.center_of_mass(np.ones_like(labels), labels, range(1, count + 1))
+    index = range(1, count + 1)
+    inside = ndimage.sum(allowed, labels, index)
+    if inside.max() == 0:
+        return alpha
+    primary = int(np.argmax(inside)) + 1
+    areas = ndimage.sum(np.ones_like(labels), labels, index)
+    centres = ndimage.center_of_mass(np.ones_like(labels), labels, index)
     keep = np.zeros(count + 1, dtype=bool)
     for i, (area, (cy, cx)) in enumerate(zip(areas, centres), start=1):
         on_rig = rig[min(h - 1, int(cy)), min(w - 1, int(cx))]
-        keep[i] = area == largest or (area >= KEEP_MIN_SHARE * largest and on_rig)
+        keep[i] = i == primary or (area >= KEEP_MIN_SHARE * areas[primary - 1] and on_rig)
 
     kept = keep[labels]
     # Grown a little before it is applied, so the model's soft edge survives

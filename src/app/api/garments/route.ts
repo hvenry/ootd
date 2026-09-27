@@ -8,7 +8,11 @@ import { parseCalibration, str } from "@/lib/capture";
 import { declaredName } from "@/lib/colour/declared";
 import { newId } from "@/lib/ids";
 import { contentHash, writeOriginal } from "@/lib/storage";
-import { DEFAULT_LAYER_SLOT, type Category } from "@/lib/measure/templates";
+import {
+  DEFAULT_LAYER_SLOT,
+  tileScaleFor,
+  type Category,
+} from "@/lib/measure/templates";
 
 export const runtime = "nodejs";
 
@@ -106,6 +110,7 @@ export async function POST(request: Request) {
         // and geometry in millimetres needs the map into the metric canvas.
         homography: calibration.m,
         pxPerMm: calibration.pxPerMm,
+        tileScale: tileScaleFor(category),
       },
       contentHash: contentHash("cutout", originalPath),
     });

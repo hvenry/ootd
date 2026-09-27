@@ -43,7 +43,7 @@ def get_provider(name: str | None = None) -> CutoutProvider:
     """
     One instance per provider for the life of the worker.
 
-    A re-cut can ask for any provider per job, and BiRefNet loads 3.5GB of
+    A re-cut can ask for any provider per job, and BiRefNet loads 450MB of
     weights on first use; building a fresh one per job would pay that load
     on every cut.
     """
@@ -51,6 +51,14 @@ def get_provider(name: str | None = None) -> CutoutProvider:
     if chosen not in _instances:
         _instances[chosen] = _build(chosen)
     return _instances[chosen]
+
+
+def release_idle() -> None:
+    """Let any provider holding a model drop it; see MODEL_KEEP_ALIVE_SECONDS."""
+    for provider in _instances.values():
+        release = getattr(provider, "release_if_idle", None)
+        if release is not None:
+            release()
 
 
 def _build(chosen: str) -> CutoutProvider:

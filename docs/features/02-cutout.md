@@ -10,9 +10,10 @@ Chosen by `CUTOUT_PROVIDER` in `worker/providers/`.
 
 - **`local` (default): BiRefNet (MIT).** A trained segmentation model that
   judges shape and texture, so dark-on-dark garments, shadows and frayed
-  edges come out right. It is gated to the rig area and to the garment's own
-  pieces, which drops feet or bags at the edge of the frame. The model is
-  pinned to a revision.
+  edges come out right. The rig picks which of the mask's pieces are the
+  garment, which drops feet or bags at the edge of the frame. It never cuts a
+  kept piece, so a sleeve laid wider than the markers survives whole. The
+  model is pinned to a revision.
 - **`chroma`:** a colour key against the floor sampled inside the rig. It is
   instant and needs no model, but fails on garments close to the floor's
   colour, and says so.
@@ -35,8 +36,18 @@ since the pins live in the homography's canvas and not in the mask.
 ## Output
 
 `cutouts/<owner>/<photo>[-<run>].png` keeps the full frame, and
-`_tile.png` beside it is a 3:4 crop. The photo records the path, provider and
-bounds.
+`_tile.png` beside it is a 3:4 tile for the closet. The photo records the
+path, provider and bounds.
+
+The tile is drawn through the homography, so it is seen straight down and
+upright, at a scale every tile shares: one canvas for tops and outerwear
+(1600×2133 mm, which 95% of tops fit spread out) and one for bottoms
+(1000×1333 mm), both at 0.8 px/mm. A blazer laid with its sleeves down
+therefore reads smaller than a hoodie with its arms out, instead of both being
+zoomed to fill the tile. The job's `tileScale` names the canvas. A garment
+larger than its canvas is shrunk to fit and logged. The bounds also record
+where the garment sits in its tile, so a page showing one garment alone can
+crop to it and show it large.
 
 ## Never
 

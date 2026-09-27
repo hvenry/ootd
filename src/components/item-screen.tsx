@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { GarmentDetails } from "@/components/garment-details";
 import { GarmentSchematic } from "@/components/garment-schematic";
 import { PhotoStrip } from "@/components/photo-strip";
+import type { TileCrop } from "@/lib/storage";
 import { useActivity } from "@/components/activity";
 import { deleteDetailPhoto } from "@/app/actions";
 import type { KnownBrand } from "@/lib/search/brands";
@@ -29,6 +30,7 @@ type ItemPhoto = {
   detailKind: DetailKind | null;
   src: string;
   fallback: string;
+  crop: TileCrop | null;
 };
 
 /**
@@ -263,6 +265,7 @@ export function ItemScreen({
             id: p.id,
             src: p.src,
             fallback: p.fallback,
+            crop: p.crop,
             alt: labels[i],
           }))}
           index={index}
