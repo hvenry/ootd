@@ -1,7 +1,7 @@
 # Cutout
 
 Background removal. It is an internal step: the standard image is what the
-user sees. The cutout feeds standardisation, crops the measure view and seeds
+closet shows, and the cutouts sit behind the raw view. The cutout feeds standardisation, crops the measure view and seeds
 the pins.
 
 ## Providers
@@ -36,18 +36,28 @@ since the pins live in the homography's canvas and not in the mask.
 ## Output
 
 `cutouts/<owner>/<photo>[-<run>].png` keeps the full frame, and
-`_tile.png` beside it is a 3:4 tile for the closet. The photo records the
+`_tile2.png` beside it is a 3:4 tile for the closet. The photo records the
 path, provider and bounds.
 
 The tile is drawn through the homography, so it is seen straight down and
 upright, at a scale every tile shares: one canvas for tops and outerwear
-(1600×2133 mm, which 95% of tops fit spread out) and one for bottoms
+(1300×1733 mm, which nine in ten tops fit spread out) and one for bottoms
 (1000×1333 mm), both at 0.8 px/mm. A blazer laid with its sleeves down
 therefore reads smaller than a hoodie with its arms out, instead of both being
 zoomed to fill the tile. The job's `tileScale` names the canvas. A garment
 larger than its canvas is shrunk to fit and logged. The bounds also record
 where the garment sits in its tile, so a page showing one garment alone can
 crop to it and show it large.
+
+Tiles can be redrawn from the cutouts at any time with
+`python -m worker.retile`, which also rewrites the bounds. A new canvas needs
+a new tile name, since media is immutable: bump `TILE_SUFFIX` in the worker
+and `tilePathFor` in `src/lib/storage.ts` together.
+
+## Off the rig
+
+Planned for the shoe's angled shots, which have no markers: an ungated cut
+that keeps the largest central piece. See `11-footwear-accessories.md`.
 
 ## Never
 

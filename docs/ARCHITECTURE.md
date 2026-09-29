@@ -49,5 +49,6 @@ the toasts, the header count, `/status` and the progress bars. Progress is an
 estimate: elapsed time against the provider's recent average.
 
 **Next: standardise.** A finished cutout on a measured garment queues a
-`standardize` job. The worker normalises scale and orientation, calls the
-model, re-measures the result, and stores `standard_path` if it passes.
+`standardize` job. The worker normalises scale and orientation, asks the model
+to dress the frozen mannequin plate from the cutouts and close-ups, measures
+the result against the plate, and stores `standard_path` if it passes.

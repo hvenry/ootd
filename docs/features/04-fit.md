@@ -15,3 +15,6 @@ image, and never read from one.
 - **Body data** comes from `body_measurement`, taken with a tape, using the
   latest reading per key.
 - **UI:** one line, `fit: chest regular · shoulder snug`, with no colour coding.
+- **The mannequin:** the same readings build the custom plate that the
+  standard images are rendered on (`08-standardize.md`). It illustrates; it
+  never makes the fit call.

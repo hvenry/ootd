@@ -1,16 +1,20 @@
 # Outfits
 
-Comes after standardisation. Flat-lay catalogue images first, with try-on on
-Henry's photo as a later experiment.
+Comes after standardisation. Outfits are worn on the same mannequin plate as
+the standard images (`08-standardize.md`), with try-on on Henry's photo as a
+later experiment. An outfit image needs footwear, so it waits on
+`11-footwear-accessories.md`.
 
 ## Picked outfits
 
 Select garments from the closet, run them through the layer validator
-(`06-layering.md`), and show a flat-lay of their standard images arranged by
-layer slot on the white ground.
+(`06-layering.md`), and generate the plate wearing them all: the standard
+images as references, in layer order, from base to outer, with shoes and belt.
+The pieces already share the plate's body and scale, which is what makes one
+pass reliable.
 
-A deterministic composite is free and instant. A generated editorial flat-lay
-is an optional upgrade behind the same `outfit` row.
+Until it lands, the outfit shows its pieces' standard tiles side by side,
+which is free and instant.
 
 ## Ideas
 
@@ -22,5 +26,5 @@ added, and each idea saves as an `outfit` with `source = idea`.
 
 - Fit and warmth lines come from the numbers and sit beside the image.
 - Every generated image is cached by a hash of its inputs.
-- Try-on models (FLUX VTO, Pruna, FASHN) belong to the later experiment, not
-  to flat-lays.
+- Try-on models (FLUX VTO, Pruna, FASHN) belong to the later experiment on
+  Henry's photo.

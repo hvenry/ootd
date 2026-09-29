@@ -15,7 +15,7 @@ Not built yet. One outfit for today, full bleed, with the reasons beside it.
 
 Search garment sets whose summed clo puts the `pythermalcomfort` PMV near
 neutral for the forecast. Rain makes a waterproof outer layer mandatory. Rank
-by colour score, recency and rotation, show the best as a flat-lay, and swipe
+by colour score, recency and rotation, show the best on the mannequin, and swipe
 for the next.
 
 **clo seeds:** tee 0.08, shorts 0.08, dress shirt 0.25, flannel 0.34, thin

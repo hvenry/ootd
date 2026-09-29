@@ -4,8 +4,8 @@ A wardrobe app for hvenry's closet. Every garment is photographed front
 and back on a marker rig, cut out, and **measured to the millimetre**.
 
 The measurements make fit arithmetic instead of a guess. The photos feed a
-hosted image model that produces one clean, standardised catalogue image per
-face. Those images build outfits, a gallery of outfit ideas, and a daily
+hosted image model that dresses one fixed mannequin with each face, so the
+closet reads as one standardised catalogue. Those images build outfits, a gallery of outfit ideas, and a daily
 outfit chosen against the real forecast, with a wear calendar closing the loop.
 
 **Thesis:** other wardrobe apps catalogue clothes, but none store a number you

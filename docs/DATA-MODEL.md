@@ -64,11 +64,15 @@ measurement. With no row, the `NEXT_PUBLIC_SHEET_*` environment is used.
 
 | Table or column | Purpose |
 |---|---|
-| `photo.standard_path`, `standard_status`, `standard_model` | The standard catalogue image per face and what made it |
+| `photo.standard_path`, `standard_status`, `standard_model`, `standard_plate` | The standard image per face, what made it, and which plate version it was rendered on |
+| `mannequin` | Plate versions: front and back image paths, mm per pixel, landmarks in mm, and the body readings it was built from |
 | `outfit` | `garment_ids[]` in layer order, `image_path`, `source` (`picked`, `idea`, `daily`), colour score components |
 | `wear_log` | `worn_on`, `garment_ids[]`, optional `outfit_id`, `comfort_vote`; unique per owner and day |
 | `body_measurement` | Append-only readings. Natural and trouser waist stay separate |
 | `garment_colour` | OKLCH clusters with fractions, one of them representative |
-| `shoe`, `hat` | Labelled size and size system, never normalised across systems |
+| Categories `boot`, `belt` | Beside the existing `shoe` and `hat`; see `features/11-footwear-accessories.md` |
+| `garment.size_label`, `size_system` | Labelled size and its system (US, UK, EU) for footwear and hats, never converted between systems |
+| Photo views for footwear | Top-down (with a homography, from the A3 sheet), outer and inner side, front and back at 45° (no homography) |
+| `rig` by layout | The A3 sheet's spans beside the taped rig's, chosen by the marker IDs in frame |
 
 Bake-off results are files under `storage/bakeoff/`, not database rows.

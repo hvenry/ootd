@@ -27,8 +27,11 @@ trousers.
 Measure the spans centre to centre and enter them in Settings, where the
 diagonals cross-check them as you type. A photo keeps the homography it was
 solved with, so a changed rig applies from the next photo on and never moves
-an existing measurement. Accuracy is about ±1 to 3 mm over 50 cm, limited by how flat the garment
-lies.
+an existing measurement. Accuracy is about ±1 to 3 mm over 50 cm, limited
+by how flat the garment lies.
+
+Shoes use the single A3 sheet instead, and belts lie in a U inside the rig:
+see `11-footwear-accessories.md`.
 
 ## Rules
 
