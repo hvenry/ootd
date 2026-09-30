@@ -1,9 +1,10 @@
 import { GarmentFigure, SILHOUETTES } from "@/components/garment-hint";
-import type {
-  Category,
-  Dimension,
-  MeasurementKey,
-  Silhouette,
+import {
+  pinLayoutFor,
+  type Category,
+  type Dimension,
+  type MeasurementKey,
+  type Silhouette,
 } from "@/lib/measure/templates";
 import { type DisplayUnit, formatLength, unitSuffix } from "@/lib/units";
 
@@ -39,6 +40,8 @@ const BOX_PAD_X = 1.4;
 const BOX_PAD_Y = 0.9;
 /* The white halo behind each figure, half its stroke width. */
 const HALO = 1;
+/* Pin numbers are smaller than the figures: they name points, not values. */
+const PIN_FONT_SIZE = 4.8;
 
 type Box = { x: number; y: number; w: number; h: number };
 
@@ -113,6 +116,11 @@ export function GarmentSchematic({
 }) {
   const shape = SILHOUETTES[silhouette];
   const showingValues = Object.keys(values).length > 0;
+  // As a guide, a garment measured on shared pins shows them numbered, as
+  // the photo does; with values on, the figures are the point and the
+  // numbers would crowd them.
+  const layout = showingValues ? null : pinLayoutFor(silhouette);
+  const activePair = activeKey ? layout?.pairs[activeKey] : undefined;
 
   const labels = dimensions.map((dimension) => {
     const mm = values[dimension.key];
@@ -207,10 +215,13 @@ export function GarmentSchematic({
               strokeDasharray={active ? undefined : "2 2"}
               className="schematic-dim-line"
             />
-            {[
-              [x1, y1],
-              [x2, y2],
-            ].map(([x, y]) => (
+            {(layout
+              ? []
+              : [
+                  [x1, y1],
+                  [x2, y2],
+                ]
+            ).map(([x, y]) => (
               <circle
                 key={`${x}-${y}`}
                 cx={x}
@@ -258,6 +269,42 @@ export function GarmentSchematic({
                 {text}
               </text>
             ) : null}
+          </g>
+        );
+      })}
+
+      {/* Drawn once each, over every line, rather than as each line's ends:
+          a shared pin is one point, not two circles stacked. */}
+      {layout?.pins.map((pin, i) => {
+        const active = activePair?.includes(i) ?? false;
+        const stroke = active ? "var(--fg)" : "var(--fg3)";
+        return (
+          <g key={i} className="pointer-events-none">
+            <circle
+              cx={pin.x}
+              cy={pin.y}
+              r={1.5}
+              fill={active ? "var(--fg)" : "var(--bg)"}
+              stroke={stroke}
+              strokeWidth={1}
+              vectorEffect="non-scaling-stroke"
+            />
+            <text
+              x={pin.lx}
+              y={pin.ly}
+              textAnchor={pin.anchor}
+              style={{
+                fontFamily: "var(--font-mono)",
+                fontVariantNumeric: "tabular-nums",
+                fontSize: PIN_FONT_SIZE,
+              }}
+              fill={stroke}
+              stroke="var(--bg)"
+              strokeWidth={HALO * 2}
+              paintOrder="stroke"
+            >
+              {i + 1}
+            </text>
           </g>
         );
       })}

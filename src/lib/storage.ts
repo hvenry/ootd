@@ -70,31 +70,20 @@ export function contentHash(...parts: string[]): string {
 
 /**
  * The tile the worker writes beside every cutout: the garment cropped onto a
- * 3:4 canvas. Path by convention, so nothing new is stored on the row.
+ * 3:4 canvas. Path by convention, so nothing new is stored on the row. The
+ * suffix changes whenever tiles are drawn differently, because media is
+ * immutable; it must match TILE_SUFFIX in worker/worker/main.py.
  */
 export function tilePathFor(cutoutPath: string): string {
-  return cutoutPath.replace(/\.png$/, "_tile.png");
+  return cutoutPath.replace(/\.png$/, "_tile3.webp");
 }
 
-/** Where the garment sits inside its tile, as fractions of the tile. */
-export type TileCrop = { x: number; y: number; w: number; h: number };
-
 /**
- * The garment's own box within its tile, as the worker recorded it beside
- * the cutout's bounds.
- *
- * Tiles share a scale so the closet shows garments at their relative sizes,
- * which leaves a small garment small in its tile. Wherever one is shown on
- * its own, cropping to this box lets it fill the space instead. Null for a
- * tile written before the worker recorded it.
+ * The garment alone at the photo's own resolution, straight down and cropped
+ * to it: what the item page shows. The tile is at a shared, smaller scale for
+ * the grid, and blown up to fill a page it was soft. Must match LARGE_SUFFIX
+ * in worker/worker/main.py.
  */
-export function tileCrop(bounds: unknown): TileCrop | null {
-  const tile = (bounds as { tile?: Partial<TileCrop> } | null)?.tile;
-  if (!tile) return null;
-  const { x, y, w, h } = tile;
-  return [x, y, w, h].every((v) => typeof v === "number" && Number.isFinite(v)) &&
-    w! > 0 &&
-    h! > 0
-    ? { x: x!, y: y!, w: w!, h: h! }
-    : null;
+export function largePathFor(cutoutPath: string): string {
+  return cutoutPath.replace(/\.png$/, "_large1.webp");
 }

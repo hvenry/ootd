@@ -465,7 +465,10 @@ function Grid({
     );
   }
   return (
-    <ul className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-8 xl:grid-cols-4 xl:gap-x-10">
+    /* Three across at most. Tops share one scale sized for a hoodie with its
+       arms out, so a tee fills little of its tile, and at four across that
+       read as a thumbnail. */
+    <ul className="grid grid-cols-2 gap-x-4 gap-y-12 md:grid-cols-3 md:gap-x-8 xl:gap-x-10">
       {items.map((item) => (
         <li key={item.id}>
           <Link

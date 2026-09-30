@@ -11,7 +11,12 @@ import { garment, job, measurement, photo, rig } from "@/db/schema";
 import { isDeclaredColour } from "@/lib/colour/declared";
 import { quadCheckMm, solveQuadMm } from "@/lib/homography/sheet";
 import { newId } from "@/lib/ids";
-import { absolutePath, cutoutPathFor, tilePathFor } from "@/lib/storage";
+import {
+  absolutePath,
+  cutoutPathFor,
+  largePathFor,
+  tilePathFor,
+} from "@/lib/storage";
 import {
   DEFAULT_LAYER_SLOT,
   templateFor,
@@ -227,6 +232,7 @@ export async function deleteGarment(garmentId: string) {
       await rm(absolutePath(relative), { force: true });
       if (relative.endsWith(".png")) {
         await rm(absolutePath(tilePathFor(relative)), { force: true });
+        await rm(absolutePath(largePathFor(relative)), { force: true });
       }
     }
   }

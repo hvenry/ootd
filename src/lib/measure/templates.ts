@@ -94,11 +94,211 @@ export type Dimension = {
   guide: string;
 };
 
+/** Where a figure or a pin number sits on the sketch. */
+type LabelAt = Pick<Hint, "lx" | "ly" | "anchor">;
+
+/**
+ * One pin on a shared layout: where it sits on the sketch, where its number
+ * goes, and the sentence that says which point on the cloth it marks.
+ */
+export type Pin = { x: number; y: number; guide: string } & LabelAt;
+
+/**
+ * A garment measured by placing every point once, rather than two points
+ * per dimension.
+ *
+ * Dimensions share their ends: on trousers the waist's left corner is where
+ * the outseam starts, on a top the shoulder seam's end is where the sleeve
+ * starts. Pinned a pair at a time, the same point was placed twice and never
+ * quite the same place twice, so two numbers disagreed about where the
+ * garment begins. Each point placed once cannot disagree with itself.
+ */
+export type PinLayout = {
+  pins: Pin[];
+  /**
+   * The two pins each dimension runs between, indexes into `pins`, in the
+   * order the row stores them as p1 and p2.
+   */
+  pairs: Partial<Record<MeasurementKey, [number, number]>>;
+  /** How the pins are placed from the cutout before anyone touches them. */
+  seed: { kind: "bottom"; crotchAt: number } | { kind: "top"; sleeved: boolean };
+  /**
+   * A pin held square to a line: `pin` only moves along the line through
+   * `from` at right angles to `across`. A body length is measured straight
+   * down the garment, and a hem pin free to wander sideways makes it a
+   * diagonal. Square to the shoulders rather than to the photo, so a
+   * garment laid a little crooked is still measured along itself.
+   */
+  plumb?: { pin: number; from: number; across: [number, number] };
+};
+
+function pinsFrom(
+  guides: string[],
+  points: [number, number, number, number, Hint["anchor"]][],
+): Pin[] {
+  return points.map(([x, y, lx, ly, anchor], i) => ({
+    x,
+    y,
+    lx,
+    ly,
+    anchor,
+    guide: guides[i],
+  }));
+}
+
+/**
+ * Round the left leg: 1–2 waist, 1–3 outseam, 3–4 leg opening, 4–5 inseam,
+ * 5–6 front rise. Inseam and front rise are stored crotch-first and
+ * waist-first, as they were when they were pinned a pair at a time.
+ */
+const BOTTOM_PAIRS: PinLayout["pairs"] = {
+  waist: [0, 1],
+  outseam: [0, 2],
+  leg_opening: [2, 3],
+  inseam: [4, 3],
+  front_rise: [5, 4],
+};
+
+const BOTTOM_PIN_GUIDES = [
+  "Top of the waistband, left edge.",
+  "Top of the waistband, right edge.",
+  "Bottom of the left leg, outside edge.",
+  "Bottom of the left leg, inside edge.",
+  "The crotch seam, where the legs meet.",
+  "Top of the front waistband, at the fly.",
+];
+
+/**
+ * 1–2 pit to pit, 3–4 shoulder, 3–5 sleeve, 6–7 body length, so the list
+ * keeps pit to pit first and still counts up. The sleeve is the left one,
+ * as the leg is on trousers.
+ */
+const SLEEVED_PAIRS: PinLayout["pairs"] = {
+  chest: [0, 1],
+  shoulder: [2, 3],
+  sleeve: [2, 4],
+  body_length: [5, 6],
+};
+
+const SLEEVED_PIN_GUIDES = [
+  "Left armpit, at the bottom of the armhole.",
+  "Right armpit.",
+  "Left shoulder point, where the shoulder seam meets the sleeve.",
+  "Right shoulder point.",
+  "End of the left sleeve, on its top edge.",
+  "High point of the shoulder, beside the collar.",
+  "The bottom hem. It stays straight below 6.",
+];
+
+const SLEEVELESS_PAIRS: PinLayout["pairs"] = {
+  chest: [0, 1],
+  shoulder: [2, 3],
+  body_length: [4, 5],
+};
+
+const SLEEVELESS_PIN_GUIDES = [
+  "Left armpit, at the bottom of the armhole.",
+  "Right armpit.",
+  "Left shoulder, at the outer end of the shoulder seam.",
+  "Right shoulder.",
+  "High point of the shoulder, beside the neck.",
+  "The bottom hem. It stays straight below 5.",
+];
+
+/* Numbers sit outside the points they mark, and clear of the figures: the
+   waist's and shoulder's values are over the middle of the top edge, the leg
+   opening's under the middle of the hem. */
+const PIN_LAYOUTS: Partial<Record<Silhouette, PinLayout>> = {
+  top: {
+    pins: pinsFrom(SLEEVED_PIN_GUIDES, [
+      [23, 43, 20.5, 47, "end"],
+      [77, 43, 79.5, 47, "start"],
+      [23, 15, 20.5, 13, "end"],
+      [77, 15, 79.5, 13, "start"],
+      [2, 30, -0.5, 34, "end"],
+      [37, 10, 35, 7.5, "end"],
+      [37, 92, 39.5, 98.5, "start"],
+    ]),
+    pairs: SLEEVED_PAIRS,
+    seed: { kind: "top", sleeved: true },
+    plumb: { pin: 6, from: 5, across: [2, 3] },
+  },
+  long_top: {
+    pins: pinsFrom(SLEEVED_PIN_GUIDES, [
+      [23, 42, 20.5, 46, "end"],
+      [77, 42, 79.5, 46, "start"],
+      [28, 15, 25.5, 13, "end"],
+      [72, 15, 74.5, 13, "start"],
+      [-5, 86, -7.5, 91, "end"],
+      [42, 10, 40, 7.5, "end"],
+      [42, 88, 44.5, 94.5, "start"],
+    ]),
+    pairs: SLEEVED_PAIRS,
+    seed: { kind: "top", sleeved: true },
+    plumb: { pin: 6, from: 5, across: [2, 3] },
+  },
+  vest: {
+    pins: pinsFrom(SLEEVELESS_PIN_GUIDES, [
+      [23, 47, 20.5, 51, "end"],
+      [77, 47, 79.5, 51, "start"],
+      [29, 15, 26.5, 13, "end"],
+      [71, 15, 73.5, 13, "start"],
+      [38, 10, 36, 7.5, "end"],
+      [38, 92, 40.5, 98.5, "start"],
+    ]),
+    pairs: SLEEVELESS_PAIRS,
+    seed: { kind: "top", sleeved: false },
+    plumb: { pin: 5, from: 4, across: [2, 3] },
+  },
+  bottom: {
+    pins: pinsFrom(BOTTOM_PIN_GUIDES, [
+      [27, 6, 24.5, 4, "end"],
+      [73, 6, 75.5, 4, "start"],
+      [24, 99, 21.5, 104, "end"],
+      [46, 99, 48.5, 104, "start"],
+      [50, 38, 47, 42, "end"],
+      [50, 6, 47.5, 13, "end"],
+    ]),
+    pairs: BOTTOM_PAIRS,
+    seed: { kind: "bottom", crotchAt: 0.34 },
+  },
+  shorts: {
+    pins: pinsFrom(BOTTOM_PIN_GUIDES, [
+      [27, 6, 24.5, 4, "end"],
+      [73, 6, 75.5, 4, "start"],
+      [22, 60, 19.5, 65, "end"],
+      [47, 60, 49.5, 65, "start"],
+      [50, 38, 47, 42, "end"],
+      [50, 6, 47.5, 13, "end"],
+    ]),
+    pairs: BOTTOM_PAIRS,
+    seed: { kind: "bottom", crotchAt: 0.55 },
+  },
+};
+
+/** The shared-pin layout a silhouette is measured with, if it has one. */
+export function pinLayoutFor(silhouette: Silhouette | null): PinLayout | null {
+  return (silhouette && PIN_LAYOUTS[silhouette]) ?? null;
+}
+
+/** A dimension's sketch line, drawn between the very pins that measure it. */
+function lineFor(
+  layout: PinLayout,
+  key: MeasurementKey,
+  label: LabelAt,
+): Hint {
+  const [a, b] = layout.pairs[key]!;
+  const p1 = layout.pins[a];
+  const p2 = layout.pins[b];
+  return { x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, ...label };
+}
+
 type TopSilhouette = "top" | "long_top" | "vest";
 
 type TopDefinition = Omit<Dimension, "hint" | "seed"> & {
   seed: Partial<Record<TopSilhouette, HandleSeed>> & { top: HandleSeed };
-  hints: Partial<Record<TopSilhouette, Hint>> & { top: Hint };
+  /** Where the value goes; the line itself runs between the dimension's pins. */
+  labels: Partial<Record<TopSilhouette, LabelAt>> & { top: LabelAt };
 };
 
 const TOP_DEFINITIONS: TopDefinition[] = [
@@ -117,26 +317,10 @@ const TOP_DEFINITIONS: TopDefinition[] = [
       vest: { kind: "widest_chord", from: 0.18, to: 0.38 },
     },
     optional: false,
-    hints: {
-      top: { x1: 23, y1: 43, x2: 77, y2: 43, lx: 56, ly: 52, anchor: "middle" },
-      long_top: {
-        x1: 23,
-        y1: 42,
-        x2: 77,
-        y2: 42,
-        lx: 56,
-        ly: 51,
-        anchor: "middle",
-      },
-      vest: {
-        x1: 23,
-        y1: 47,
-        x2: 77,
-        y2: 47,
-        lx: 62,
-        ly: 56,
-        anchor: "middle",
-      },
+    labels: {
+      top: { lx: 56, ly: 52, anchor: "middle" },
+      long_top: { lx: 56, ly: 51, anchor: "middle" },
+      vest: { lx: 62, ly: 56, anchor: "middle" },
     },
     guide:
       "Straight across from one armpit to the other, at the bottom of each armhole. Outer edge to outer edge.",
@@ -150,18 +334,10 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     doublingApproximatesCircumference: false,
     seed: { top: { kind: "horizontal", at: 0.1 } },
     optional: false,
-    hints: {
-      top: { x1: 23, y1: 15, x2: 77, y2: 15, lx: 50, ly: 3, anchor: "middle" },
-      long_top: {
-        x1: 28,
-        y1: 15,
-        x2: 72,
-        y2: 15,
-        lx: 50,
-        ly: 3,
-        anchor: "middle",
-      },
-      vest: { x1: 29, y1: 15, x2: 71, y2: 15, lx: 50, ly: 3, anchor: "middle" },
+    labels: {
+      top: { lx: 50, ly: 3, anchor: "middle" },
+      long_top: { lx: 50, ly: 3, anchor: "middle" },
+      vest: { lx: 50, ly: 3, anchor: "middle" },
     },
     guide:
       "Across the top, from where one shoulder seam meets the sleeve to the same point on the other side.",
@@ -184,18 +360,12 @@ const TOP_DEFINITIONS: TopDefinition[] = [
       },
     },
     optional: false,
-    hints: {
-      top: { x1: 77, y1: 15, x2: 98, y2: 30, lx: 100, ly: 27, anchor: "start" },
-      long_top: {
-        x1: 72,
-        y1: 15,
-        x2: 105,
-        y2: 86,
-        lx: 94,
-        ly: 45,
-        anchor: "start",
-      },
-      // No vest hint: a vest has no sleeve, and the template omits it.
+    // On the left sleeve, where the pins put it; the value sits off the
+    // sleeve's outer edge.
+    labels: {
+      top: { lx: 0, ly: 27, anchor: "end" },
+      long_top: { lx: 6, ly: 45, anchor: "end" },
+      // No vest label: a vest has no sleeve, and the template omits it.
     },
     // Along the top, not the underarm: the underarm seam is shorter, it is
     // the one people reach for by accident, and the two differ by enough to
@@ -212,26 +382,10 @@ const TOP_DEFINITIONS: TopDefinition[] = [
     doublingApproximatesCircumference: false,
     seed: { top: { kind: "vertical", from: 0.02, to: 0.98 } },
     optional: false,
-    hints: {
-      top: { x1: 37, y1: 10, x2: 37, y2: 92, lx: 43, ly: 66, anchor: "start" },
-      long_top: {
-        x1: 42,
-        y1: 10,
-        x2: 42,
-        y2: 88,
-        lx: 48,
-        ly: 68,
-        anchor: "start",
-      },
-      vest: {
-        x1: 38,
-        y1: 10,
-        x2: 38,
-        y2: 92,
-        lx: 43,
-        ly: 72,
-        anchor: "start",
-      },
+    labels: {
+      top: { lx: 43, ly: 66, anchor: "start" },
+      long_top: { lx: 48, ly: 68, anchor: "start" },
+      vest: { lx: 43, ly: 72, anchor: "start" },
     },
     guide:
       "From the highest point of the shoulder, beside the collar, straight down to the bottom hem.",
@@ -241,10 +395,15 @@ const TOP_DEFINITIONS: TopDefinition[] = [
 /** The dimensions a top-shaped silhouette takes, with the hints drawn for that shape. */
 function topsFor(silhouette: TopSilhouette): Dimension[] {
   const out: Dimension[] = [];
-  for (const { hints, seed, ...rest } of TOP_DEFINITIONS) {
-    const hint = hints[silhouette];
-    if (!hint) continue;
-    out.push({ ...rest, hint, seed: seed[silhouette] ?? seed.top });
+  const layout = PIN_LAYOUTS[silhouette]!;
+  for (const { labels, seed, ...rest } of TOP_DEFINITIONS) {
+    const label = labels[silhouette];
+    if (!label) continue;
+    out.push({
+      ...rest,
+      hint: lineFor(layout, rest.key, label),
+      seed: seed[silhouette] ?? seed.top,
+    });
   }
   return out;
 }
@@ -257,13 +416,17 @@ type BottomSilhouette = "bottom" | "shorts";
 
 type BottomDefinition = Omit<Dimension, "hint" | "seed"> & {
   seed: Partial<Record<BottomSilhouette, HandleSeed>> & { bottom: HandleSeed };
-  hints: Record<BottomSilhouette, Hint>;
+  /** Where the value goes; the line itself runs between the dimension's pins. */
+  labels: Record<BottomSilhouette, LabelAt>;
 };
 
 /**
  * Shorts take exactly the trouser dimensions; only the drawing and the
  * seeding differ, because the crotch sits about halfway down a pair of
  * shorts and a third of the way down a pair of trousers.
+ *
+ * In the order the pins go round the leg, so the list reads 1–2, 1–3, 3–4,
+ * 4–5, 5–6.
  */
 const BOTTOM_DEFINITIONS: BottomDefinition[] = [
   {
@@ -275,9 +438,9 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
     doublingApproximatesCircumference: true,
     seed: { bottom: { kind: "horizontal", at: 0.02 } },
     optional: false,
-    hints: {
-      bottom: { x1: 27, y1: 6, x2: 73, y2: 6, lx: 50, ly: 0, anchor: "middle" },
-      shorts: { x1: 27, y1: 6, x2: 73, y2: 6, lx: 50, ly: 0, anchor: "middle" },
+    labels: {
+      bottom: { lx: 50, ly: 0, anchor: "middle" },
+      shorts: { lx: 50, ly: 0, anchor: "middle" },
     },
     guide:
       "Straight across the top of the waistband, edge to edge, with the waistband lying flat.",
@@ -299,12 +462,27 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
       },
     },
     optional: false,
-    hints: {
-      bottom: { x1: 27, y1: 6, x2: 24, y2: 99, lx: 20, ly: 55, anchor: "end" },
-      shorts: { x1: 27, y1: 6, x2: 22, y2: 60, lx: 18, ly: 35, anchor: "end" },
+    labels: {
+      bottom: { lx: 20, ly: 55, anchor: "end" },
+      shorts: { lx: 18, ly: 35, anchor: "end" },
     },
     guide:
       "The full length: down the outside of one leg, from the top of the waistband to the bottom of the leg.",
+  },
+  {
+    key: "leg_opening",
+    label: "Leg opening",
+    prefix: "LO",
+    defaultConvention: "edge_to_edge",
+    defaultIsDoubled: false,
+    doublingApproximatesCircumference: true,
+    seed: { bottom: { kind: "horizontal", at: 0.97 } },
+    optional: false,
+    labels: {
+      bottom: { lx: 35, ly: 108, anchor: "middle" },
+      shorts: { lx: 35, ly: 69, anchor: "middle" },
+    },
+    guide: "Straight across the very bottom of one leg. Edge to edge.",
   },
   {
     key: "inseam",
@@ -318,27 +496,12 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
       shorts: { kind: "vertical", from: 0.55, to: 0.98 },
     },
     optional: false,
-    // Drawn on the right leg: the left already carries outseam and leg
-    // opening, and three labels on one leg collide.
-    hints: {
-      bottom: {
-        x1: 50,
-        y1: 38,
-        x2: 54,
-        y2: 99,
-        lx: 60,
-        ly: 80,
-        anchor: "start",
-      },
-      shorts: {
-        x1: 50,
-        y1: 38,
-        x2: 53,
-        y2: 60,
-        lx: 58,
-        ly: 52,
-        anchor: "start",
-      },
+    // The line is on the left leg's inside edge, sharing pin 4 with the leg
+    // opening; the figure goes across the gap, on the right leg, where the
+    // left leg's other two figures are not.
+    labels: {
+      bottom: { lx: 54, ly: 80, anchor: "start" },
+      shorts: { lx: 54, ly: 54, anchor: "start" },
     },
     guide:
       "Down the inside of one leg, from the crotch seam to the bottom of the leg.",
@@ -355,68 +518,24 @@ const BOTTOM_DEFINITIONS: BottomDefinition[] = [
       shorts: { kind: "vertical", from: 0.02, to: 0.55 },
     },
     optional: false,
-    hints: {
-      bottom: {
-        x1: 50,
-        y1: 6,
-        x2: 50,
-        y2: 38,
-        lx: 55,
-        ly: 33,
-        anchor: "start",
-      },
-      shorts: {
-        x1: 50,
-        y1: 6,
-        x2: 50,
-        y2: 38,
-        lx: 55,
-        ly: 30,
-        anchor: "start",
-      },
+    labels: {
+      bottom: { lx: 55, ly: 33, anchor: "start" },
+      shorts: { lx: 55, ly: 30, anchor: "start" },
     },
     guide:
       "Up the fly, from the crotch seam to the top of the front waistband.",
   },
-  {
-    key: "leg_opening",
-    label: "Leg opening",
-    prefix: "LO",
-    defaultConvention: "edge_to_edge",
-    defaultIsDoubled: false,
-    doublingApproximatesCircumference: true,
-    seed: { bottom: { kind: "horizontal", at: 0.97 } },
-    optional: false,
-    hints: {
-      bottom: {
-        x1: 24,
-        y1: 99,
-        x2: 46,
-        y2: 99,
-        lx: 35,
-        ly: 108,
-        anchor: "middle",
-      },
-      shorts: {
-        x1: 22,
-        y1: 60,
-        x2: 47,
-        y2: 60,
-        lx: 35,
-        ly: 69,
-        anchor: "middle",
-      },
-    },
-    guide: "Straight across the very bottom of one leg. Edge to edge.",
-  },
 ];
 
 function bottomsFor(silhouette: BottomSilhouette): Dimension[] {
-  return BOTTOM_DEFINITIONS.map(({ hints, seed, ...rest }) => ({
-    ...rest,
-    hint: hints[silhouette],
-    seed: seed[silhouette] ?? seed.bottom,
-  }));
+  const layout = PIN_LAYOUTS[silhouette]!;
+  return BOTTOM_DEFINITIONS.map(({ labels, seed, ...rest }) => {
+    return {
+      ...rest,
+      hint: lineFor(layout, rest.key, labels[silhouette]),
+      seed: seed[silhouette] ?? seed.bottom,
+    };
+  });
 }
 
 const BOTTOMS = bottomsFor("bottom");

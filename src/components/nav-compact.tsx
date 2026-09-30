@@ -27,10 +27,12 @@ export function NavCompact() {
   return (
     <>
       <div className="grid w-full grid-cols-3 items-center">
-        <div className="flex items-center gap-5">
+        {/* Each control is a 44px target around a small icon. The negative
+            margins keep the icons where they were against the gutter. */}
+        <div className="-ml-3 flex items-center">
           <button
             type="button"
-            className="link-text inline-flex cursor-pointer items-center"
+            className="link-text inline-flex size-11 cursor-pointer items-center justify-center"
             aria-label="Menu"
             aria-expanded={open}
             onClick={() => setOpen(true)}
@@ -42,7 +44,7 @@ export function NavCompact() {
           <div className="relative flex items-center">
             <button
               type="button"
-              className={`inline-flex cursor-pointer items-center ${search ? "text-fg" : "link-text"}`}
+              className={`inline-flex size-11 cursor-pointer items-center justify-center ${search ? "text-fg" : "link-text"}`}
               aria-label="Search"
               aria-expanded={search}
               onClick={() => {
@@ -62,14 +64,15 @@ export function NavCompact() {
 
         <Wordmark className="text-center" />
 
-        <div className="flex items-center justify-end gap-4">
+        <div className="-mr-3 flex items-center justify-end gap-1">
           <StatusCount />
           <Link
             href="/capture"
-            className="link-text inline-flex cursor-pointer items-center"
+            className="label link-text inline-flex h-11 cursor-pointer items-center gap-1.5 px-3"
             aria-label="Add a garment"
           >
-            <Plus size={18} weight="regular" aria-hidden />
+            <Plus size={16} weight="regular" aria-hidden />
+            Add
           </Link>
         </div>
       </div>

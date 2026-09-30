@@ -28,10 +28,17 @@ import {
   type Matrix3,
   type Point,
 } from "@/lib/homography/solve";
-import { buildMask, seedHandles, type Mask } from "@/lib/measure/mask";
 import {
+  buildMask,
+  seedHandles,
+  seedPins,
+  type Mask,
+} from "@/lib/measure/mask";
+import {
+  pinLayoutFor,
   type Category,
   type Convention,
+  type PinLayout,
   type Dimension,
   type MeasurementKey,
   type PhotoView,
@@ -134,8 +141,54 @@ type GarmentSummary = {
 type Handles = {
   p1: Point;
   p2: Point;
-  source: "frame" | "mask" | "stored" | "user";
+  source: Source;
 };
+
+type Source = "frame" | "mask" | "stored" | "user";
+
+/** One pin of a shared layout; a dimension's pair is two of these. */
+type HeldPin = { at: Point; source: Source };
+
+/**
+ * What a pair of shared pins amounts to. Moved by hand at either end, it is
+ * a measurement; both ends as stored, it is the stored one; anything else is
+ * still a guess.
+ */
+function pairSource(a: Source, b: Source): Source {
+  if (a === "user" || b === "user") return "user";
+  if (a === "stored" && b === "stored") return "stored";
+  if (a === "frame" || b === "frame") return "frame";
+  return "mask";
+}
+
+/**
+ * Hold a layout's plumbed pin on its line: through `from`, at right angles
+ * to `across`, worked in the photo's metric canvas so perspective does not
+ * tilt it. The pin keeps its distance along the line and its source; only
+ * its drift sideways is taken out.
+ */
+function plumbed(
+  pins: HeldPin[],
+  rule: NonNullable<PinLayout["plumb"]>,
+  homography: Matrix3,
+  inverse: Matrix3,
+): HeldPin[] {
+  const metric = (i: number) => applyHomography(homography, pins[i].at);
+  const a = metric(rule.across[0]);
+  const b = metric(rule.across[1]);
+  const from = metric(rule.from);
+  const pin = metric(rule.pin);
+  const length = Math.hypot(b.x - a.x, b.y - a.y);
+  if (!length) return pins;
+  const nx = -(b.y - a.y) / length;
+  const ny = (b.x - a.x) / length;
+  const t = (pin.x - from.x) * nx + (pin.y - from.y) * ny;
+  const at = applyHomography(inverse, {
+    x: from.x + nx * t,
+    y: from.y + ny * t,
+  });
+  return pins.map((p, i) => (i === rule.pin ? { ...p, at } : p));
+}
 
 /** Read a design token for canvas work, which cannot use CSS variables. */
 function token(name: string, fallback: string): string {
@@ -219,11 +272,16 @@ export function MeasureScreen({
   const [selectedKey, setSelectedKey] = useState<MeasurementKey | null>(
     dimensions[0]?.key ?? null,
   );
-  const [handles, setHandles] = useState<Record<string, Handles>>({});
+  // Tops are pinned a pair at a time; trousers and shorts on one layout of
+  // shared pins, and their pairs are read off it.
+  const layout = pinLayoutFor(silhouette);
+  const [pairs, setPairs] = useState<Record<string, Handles>>({});
+  const [pins, setPins] = useState<HeldPin[] | null>(null);
   const [saved, setSaved] = useState<Record<string, number>>(() =>
     Object.fromEntries(existing.map((m) => [m.key, m.valueMm])),
   );
-  const [dragging, setDragging] = useState<"p1" | "p2" | null>(null);
+  /** A pair's end, or a shared pin by its index. */
+  const [dragging, setDragging] = useState<"p1" | "p2" | number | null>(null);
   const [loupeAt, setLoupeAt] = useState<Point | null>(null);
   const [pending, setPending] = useState(false);
   /** Complete saves what changed, then leaves; this remembers the leaving. */
@@ -362,7 +420,46 @@ export function MeasureScreen({
     const image = imageRef.current;
     if (!image?.naturalWidth) return;
 
-    setHandles((current) => {
+    if (layout) {
+      // Each pin from the first stored row that ends on it, otherwise from
+      // the mask. As with pairs: seeded pins are replaced once the mask
+      // arrives, a pin somebody has moved never is.
+      setPins((current) => {
+        const needsSeed =
+          !current || (mask !== null && current.some((p) => p.source === "frame"));
+        if (!needsSeed) return current;
+        const seeded = seedPins(mask, layout.seed, {
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+        });
+        const next: HeldPin[] = layout.pins.map((_, i) => {
+          const held = current?.[i];
+          if (held && held.source !== "frame") return held;
+          for (const [key, [a, b]] of Object.entries(layout.pairs)) {
+            if (a !== i && b !== i) continue;
+            const stored = existing.find((m) => m.key === key);
+            const x = a === i ? stored?.p1X : stored?.p2X;
+            const y = a === i ? stored?.p1Y : stored?.p2Y;
+            if (x != null && y != null) {
+              return {
+                at: applyHomography(inverse, { x, y }),
+                source: "stored",
+              };
+            }
+          }
+          return { at: seeded[i], source: mask ? "mask" : "frame" };
+        });
+        // A stored hem is left where it was stored; anything seeded is
+        // squared up before it is shown.
+        const rule = layout.plumb;
+        return rule && next[rule.pin].source !== "stored"
+          ? plumbed(next, rule, photo.homography, inverse)
+          : next;
+      });
+      return;
+    }
+
+    setPairs((current) => {
       const next = { ...current };
       let changed = false;
 
@@ -403,9 +500,39 @@ export function MeasureScreen({
       // re-triggering itself.
       return changed ? next : current;
     });
-  }, [dimensions, existing, inverse, mask, displayScale]);
+  }, [dimensions, existing, inverse, mask, displayScale, layout, photo.homography]);
+
+  const handles = useMemo<Record<string, Handles>>(() => {
+    if (!layout) return pairs;
+    if (!pins) return {};
+    const out: Record<string, Handles> = {};
+    for (const [key, [a, b]] of Object.entries(layout.pairs)) {
+      out[key] = {
+        p1: pins[a].at,
+        p2: pins[b].at,
+        source: pairSource(pins[a].source, pins[b].source),
+      };
+    }
+    return out;
+  }, [layout, pairs, pins]);
 
   const currentHandles = activeKey ? handles[activeKey] : undefined;
+
+  function grabPin(index: number, event: React.PointerEvent) {
+    if (!layout || !pins) return;
+    event.preventDefault();
+    // The reading follows the pin in hand: if the dimension on show does
+    // not end on it, show the first that does.
+    const pair = activeKey ? layout.pairs[activeKey] : undefined;
+    if (!pair?.includes(index)) {
+      const first = dimensions.find((d) =>
+        layout.pairs[d.key]?.includes(index),
+      );
+      if (first) setSelectedKey(first.key);
+    }
+    setDragging(index);
+    setLoupeAt(pins[index].at);
+  }
 
   const measure = useCallback(
     (h: Handles) => distanceMm(photo.homography, h.p1, h.p2, photo.pxPerMm),
@@ -455,9 +582,30 @@ export function MeasureScreen({
    * there is no modifier key to suspend it with. The mask still earns its
    * keep seeding the pairs; it does not get a vote after that.
    */
-  function moveHandle(which: "p1" | "p2", point: Point) {
+  function moveHandle(which: "p1" | "p2" | number, point: Point) {
+    if (typeof which === "number") {
+      if (!pins || !layout) return;
+      let next = pins.map((p, i): HeldPin =>
+        i === which ? { at: point, source: "user" } : p,
+      );
+      // Moving the plumbed pin, or anything its line hangs from, squares it
+      // up again, so the hem slides along its line and follows the collar.
+      const rule = layout.plumb;
+      if (
+        rule &&
+        (which === rule.pin ||
+          which === rule.from ||
+          rule.across.includes(which))
+      ) {
+        next = plumbed(next, rule, photo.homography, inverse);
+      }
+      setPins(next);
+      setLoupeAt(next[which].at);
+      setNote(null);
+      return;
+    }
     if (!activeKey) return;
-    setHandles((current) => ({
+    setPairs((current) => ({
       ...current,
       [activeKey]: { ...current[activeKey], [which]: point, source: "user" },
     }));
@@ -470,12 +618,12 @@ export function MeasureScreen({
   const onDragMove = useRef<(event: PointerEvent) => void>(() => {});
   useEffect(() => {
     onDragMove.current = (event) => {
-      if (dragging) moveHandle(dragging, toImageSpace(event));
+      if (dragging !== null) moveHandle(dragging, toImageSpace(event));
     };
   });
 
   useEffect(() => {
-    if (!dragging) return;
+    if (dragging === null) return;
     function onMove(event: PointerEvent) {
       event.preventDefault();
       onDragMove.current(event);
@@ -570,7 +718,7 @@ export function MeasureScreen({
    * moved on, so the pair counts as theirs from here.
    */
   function confirm(key: MeasurementKey) {
-    setHandles((current) =>
+    setPairs((current) =>
       current[key]
         ? { ...current, [key]: { ...current[key], source: "user" } }
         : current,
@@ -643,6 +791,17 @@ export function MeasureScreen({
 
   function onNext() {
     if (!activeKey) return;
+    // One step: pressing Done accepts the whole layout. A dimension whose
+    // pins are both exactly as stored is left alone, so its stored number is
+    // not re-derived a millimetre off from rounded coordinates.
+    if (layout) {
+      void onComplete(
+        dimensions
+          .filter((d) => handles[d.key] && handles[d.key].source !== "stored")
+          .map((d) => d.key),
+      );
+      return;
+    }
     const index = shown.findIndex((d) => d.key === activeKey);
     const following = shown[index + 1];
     confirm(activeKey);
@@ -671,8 +830,16 @@ export function MeasureScreen({
 
   const stepIndex = shown.findIndex((d) => d.key === activeKey);
   const stepLabel = `${stepIndex + 1} / ${shown.length}`;
-  const isLast = stepIndex === shown.length - 1;
+  const isLast = layout !== null || stepIndex === shown.length - 1;
   const isFirst = stepIndex <= 0;
+
+  /** "1–3": which two pins a dimension runs between, lower number first. */
+  function pairName(key: MeasurementKey): string | null {
+    const pair = layout?.pairs[key];
+    if (!pair) return null;
+    const [a, b] = [...pair].sort((x, y) => x - y);
+    return `${a + 1}–${b + 1}`;
+  }
 
   /* The way out, top right, where a close always is. In the queue it leads
      on to the next garment, not out, so it says so. */
@@ -732,7 +899,9 @@ export function MeasureScreen({
         <>
           <div className="min-w-0">
             <p className="label text-fg2">
-              <span className="data text-fg3">{stepLabel}</span>{" "}
+              <span className="data text-fg3">
+                {(activeKey && pairName(activeKey)) ?? stepLabel}
+              </span>{" "}
               {activeDimension?.label}
             </p>
             <p className="mt-1">
@@ -742,7 +911,9 @@ export function MeasureScreen({
               <span className="text-fg2 ml-1.5 text-12">mm</span>
             </p>
             <p className="text-fg3 mt-1 text-11">
-              Drag either pin. It magnifies here while you hold it.
+              {layout
+                ? `${layout.pins.length} pins make all ${Object.keys(layout.pairs).length}. Drag any; it magnifies here.`
+                : "Drag either pin. It magnifies here while you hold it."}
             </p>
           </div>
           <div className="ml-auto">{exit}</div>
@@ -755,14 +926,17 @@ export function MeasureScreen({
      the previous dimension and is the text beside it. */
   const nextRow = (
     <div className="flex items-center justify-center gap-4 md:justify-start">
-      <button
-        type="button"
-        className="btn-secondary px-10 py-3"
-        onClick={onPrevious}
-        disabled={pending || leaving || isFirst}
-      >
-        Back
-      </button>
+      {/* One step on a pin layout, so nothing to go back to. */}
+      {layout ? null : (
+        <button
+          type="button"
+          className="btn-secondary px-10 py-3"
+          onClick={onPrevious}
+          disabled={pending || leaving || isFirst}
+        >
+          Back
+        </button>
+      )}
       <button
         type="button"
         className="btn-primary px-10 py-3"
@@ -792,7 +966,14 @@ export function MeasureScreen({
         <ul className="rule-top grid grid-cols-2 gap-x-6 md:mt-5 md:grid-cols-1">
           {shown.map((dimension) => {
             const selected = activeKey === dimension.key;
-            const value = placed[dimension.key];
+            // On a layout every pin is on screen, so every dimension has a
+            // reading; the ones nobody has touched yet are shown faint.
+            const held = handles[dimension.key];
+            const value =
+              placed[dimension.key] ??
+              (layout && held ? measure(held) : undefined);
+            const settled = placed[dimension.key] != null;
+            const pair = pairName(dimension.key);
             return (
               <li key={dimension.key} className="border-rule border-b">
                 <button
@@ -801,15 +982,18 @@ export function MeasureScreen({
                   onClick={() => setSelectedKey(dimension.key)}
                   className="link-text flex w-full items-baseline justify-between gap-3 py-1 text-left text-12 md:py-2"
                 >
-                  <span className="flex items-baseline gap-2">
+                  <span className="flex items-baseline gap-2 whitespace-nowrap">
                     <span aria-hidden className={selected ? "" : "invisible"}>
                       &mdash;
                     </span>
+                    {pair ? <span className="data text-fg3">{pair}</span> : null}
                     <span className={selected ? "text-fg underline" : ""}>
                       {dimension.label}
                     </span>
                   </span>
-                  <span className={`data ${value != null ? "" : "text-fg3"}`}>
+                  <span
+                    className={`data whitespace-nowrap ${settled ? "" : "text-fg3"}`}
+                  >
                     {value != null
                       ? `${formatLength(value, unit)} ${unitSuffix(unit)}`
                       : "—"}
@@ -832,9 +1016,29 @@ export function MeasureScreen({
 
         {/* Three lines are reserved whatever the guide's length, so Back
             and Next stay put from one dimension to the next. */}
-        <p className="text-fg2 mt-3 min-h-[calc(3*1.35em)] text-12 md:mt-4">
-          {activeDimension.guide}
-        </p>
+        {layout ? (
+          /* Where each pin goes, by number, as the sketch numbers them. The
+             two the dimension on show runs between are at full strength. */
+          <ol className="mt-3 text-12 md:mt-4">
+            {layout.pins.map((pin, i) => {
+              const inActive =
+                activeKey != null && layout.pairs[activeKey]?.includes(i);
+              return (
+                <li
+                  key={i}
+                  className={`flex gap-2 ${inActive ? "text-fg" : "text-fg3"}`}
+                >
+                  <span className="data w-3 shrink-0">{i + 1}</span>
+                  <span>{pin.guide}</span>
+                </li>
+              );
+            })}
+          </ol>
+        ) : (
+          <p className="text-fg2 mt-3 min-h-[calc(3*1.35em)] text-12 md:mt-4">
+            {activeDimension.guide}
+          </p>
+        )}
       </>
     ) : (
       <p className="text-fg2 text-12">
@@ -928,7 +1132,19 @@ export function MeasureScreen({
               />
             </div>
 
-            {currentHandles ? (
+            {layout && pins ? (
+              <PinOverlay
+                pins={pins.map((p) => p.at)}
+                pairs={Object.entries(layout.pairs).map(([key, pair]) => ({
+                  key,
+                  pair: pair!,
+                }))}
+                activeKey={activeKey}
+                scale={displayScale}
+                origin={view ?? { x: 0, y: 0 }}
+                onGrab={grabPin}
+              />
+            ) : currentHandles ? (
               <Overlay
                 handles={currentHandles}
                 scale={displayScale}
@@ -1021,6 +1237,97 @@ function Overlay({
           </button>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * Every pin of a layout at once, numbered as the sketch and the list number
+ * them, with every dimension's line between its two. The dimension on show
+ * is drawn as a single pair is; the rest are faint, there to show the pins
+ * are shared rather than to be read.
+ */
+function PinOverlay({
+  pins,
+  pairs,
+  activeKey,
+  scale,
+  origin,
+  onGrab,
+}: {
+  pins: Point[];
+  pairs: { key: string; pair: [number, number] }[];
+  activeKey: MeasurementKey | null;
+  scale: number;
+  origin: Point;
+  onGrab: (index: number, event: React.PointerEvent) => void;
+}) {
+  const at = pins.map((p) => ({
+    x: (p.x - origin.x) * scale,
+    y: (p.y - origin.y) * scale,
+  }));
+  // The active line last, so it is drawn over the others where they cross.
+  const ordered = [...pairs].sort(
+    (a, b) => Number(a.key === activeKey) - Number(b.key === activeKey),
+  );
+
+  return (
+    <>
+      <svg className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
+        {ordered.map(({ key, pair: [i, j] }) =>
+          key === activeKey ? (
+            <g key={key}>
+              <line
+                x1={at[i].x}
+                y1={at[i].y}
+                x2={at[j].x}
+                y2={at[j].y}
+                stroke="var(--fg)"
+                strokeWidth={1}
+              />
+              <line
+                x1={at[i].x}
+                y1={at[i].y}
+                x2={at[j].x}
+                y2={at[j].y}
+                stroke="var(--bg)"
+                strokeWidth={1}
+                strokeDasharray="4 4"
+              />
+            </g>
+          ) : (
+            <line
+              key={key}
+              x1={at[i].x}
+              y1={at[i].y}
+              x2={at[j].x}
+              y2={at[j].y}
+              stroke="var(--fg3)"
+              strokeWidth={1}
+              strokeDasharray="2 3"
+            />
+          ),
+        )}
+      </svg>
+      {at.map((p, i) => (
+        <button
+          key={i}
+          type="button"
+          aria-label={`Pin ${i + 1}`}
+          onPointerDown={(event) => onGrab(i, event)}
+          className="border-fg bg-bg absolute h-6 w-6 cursor-grab touch-none border active:cursor-grabbing"
+          style={{ left: p.x - 12, top: p.y - 12 }}
+        >
+          <span className="bg-fg absolute left-1/2 top-1/2 block h-1 w-1 -translate-x-1/2 -translate-y-1/2" />
+          {/* The number hangs off the corner, clear of the point itself. */}
+          <span
+            aria-hidden
+            className="data bg-fg text-bg pointer-events-none absolute -top-4 -right-4 px-1 leading-4"
+          >
+            {i + 1}
+          </span>
+        </button>
+      ))}
     </>
   );
 }

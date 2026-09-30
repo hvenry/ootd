@@ -35,24 +35,34 @@ since the pins live in the homography's canvas and not in the mask.
 
 ## Output
 
-`cutouts/<owner>/<photo>[-<run>].png` keeps the full frame, and
-`_tile2.png` beside it is a 3:4 tile for the closet. The photo records the
-path, provider and bounds.
+`cutouts/<owner>/<photo>[-<run>].png` keeps the full frame, for measuring.
+Beside it are two pictures drawn from it, both WebP with alpha:
+
+- `_tile3.webp`, a 3:4 tile for the closet grid.
+- `_large1.webp`, the garment alone for the item page: straight down, cropped
+  to it, at the photo's own resolution (about 1.7 px/mm on a 12 MP shot,
+  capped at 3000 px). The tile is at a shared, smaller scale, and blown up to
+  fill the item page it was visibly soft.
+
+The photo records the path, provider and bounds.
 
 The tile is drawn through the homography, so it is seen straight down and
 upright, at a scale every tile shares: one canvas for tops and outerwear
 (1300×1733 mm, which nine in ten tops fit spread out) and one for bottoms
-(1000×1333 mm), both at 0.8 px/mm. A blazer laid with its sleeves down
+(1000×1333 mm), both at 1.2 px/mm. A blazer laid with its sleeves down
 therefore reads smaller than a hoodie with its arms out, instead of both being
 zoomed to fill the tile. The job's `tileScale` names the canvas. A garment
 larger than its canvas is shrunk to fit and logged. The bounds also record
-where the garment sits in its tile, so a page showing one garment alone can
-crop to it and show it large.
+where the garment sits in its tile.
 
-Tiles can be redrawn from the cutouts at any time with
-`python -m worker.retile`, which also rewrites the bounds. A new canvas needs
-a new tile name, since media is immutable: bump `TILE_SUFFIX` in the worker
-and `tilePathFor` in `src/lib/storage.ts` together.
+Neither picture is an input to anything: they are for looking at. Generation
+works from the full-resolution cutout, never from these.
+
+Both can be redrawn from the cutouts at any time with
+`python -m worker.retile`, which also rewrites the bounds and deletes the
+older pictures. Media is immutable, so a change to how either is drawn needs a
+new name: bump `TILE_SUFFIX` or `LARGE_SUFFIX` in the worker and
+`tilePathFor` or `largePathFor` in `src/lib/storage.ts` together.
 
 ## Off the rig
 

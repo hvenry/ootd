@@ -39,7 +39,8 @@ uploads the original with its matrix. That creates a `photo` row and a
 sets `completed_at`.
 
 **Cutout.** The worker claims the job, runs the provider, and writes
-`cutouts/<owner>/<photo>[-<run>].png` plus a 3:4 tile. It records the path,
+`cutouts/<owner>/<photo>[-<run>].png` plus a 3:4 tile for the closet and a
+full-resolution picture of the garment alone for the item page. It records the path,
 provider and garment bounds on the photo. A job that names a `provider` writes
 a new file and deletes the old one only once the new one has landed.
 

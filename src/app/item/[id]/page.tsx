@@ -5,7 +5,7 @@ import { ItemScreen } from "@/components/item-screen";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { knownBrands } from "@/lib/brands";
-import { tileCrop, tilePathFor } from "@/lib/storage";
+import { largePathFor, tilePathFor } from "@/lib/storage";
 import { garment, measurement, photo, type PhotoView } from "@/db/schema";
 import {
   silhouetteFor,
@@ -81,9 +81,10 @@ export default async function ItemPage({
           id: p.id,
           view: p.view as PhotoView,
           detailKind: p.detailKind,
-          src: `/api/media/${p.cutoutPath ? tilePathFor(p.cutoutPath) : p.originalPath}`,
-          fallback: `/api/media/${p.cutoutPath ?? p.originalPath}`,
-          crop: p.cutoutPath ? tileCrop(p.cutoutBounds) : null,
+          // Already cropped to the garment and at full resolution, so it is
+          // shown whole; the tile stands in if it is missing.
+          src: `/api/media/${p.cutoutPath ? largePathFor(p.cutoutPath) : p.originalPath}`,
+          fallback: `/api/media/${p.cutoutPath ? tilePathFor(p.cutoutPath) : p.originalPath}`,
         }))}
       dimensions={templateFor(category)}
       silhouette={silhouetteFor(category)}
