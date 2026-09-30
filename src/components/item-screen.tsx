@@ -8,6 +8,7 @@ import { BackToCloset, useFromCloset } from "@/components/back-to-closet";
 import { GarmentDetails } from "@/components/garment-details";
 import { GarmentSchematic } from "@/components/garment-schematic";
 import { PhotoStrip } from "@/components/photo-strip";
+import { PhotoZoom } from "@/components/photo-zoom";
 import { useActivity } from "@/components/activity";
 import { deleteDetailPhoto } from "@/app/actions";
 import type { KnownBrand } from "@/lib/search/brands";
@@ -86,6 +87,12 @@ export function ItemScreen({
   const labels = photoLabels(photos);
   const shown = photos[Math.min(index, photos.length - 1)];
   const [removing, setRemoving] = useState(false);
+  /** The photo the full-screen view opened on, or null when it is shut. */
+  const [zoom, setZoom] = useState<number | null>(null);
+  // Full screen is the garment itself, front then back; close-ups of a label
+  // or the fabric stay in the strip. Opened from a close-up, it starts on
+  // the front.
+  const faces = photos.flatMap((p, i) => (p.view === "detail" ? [] : [i]));
 
   async function onRemoveDetail(id: string) {
     setRemoving(true);
@@ -273,6 +280,7 @@ export function ItemScreen({
             }))}
             index={index}
             onIndexChange={setIndex}
+            onOpen={setZoom}
             className="lg:min-h-0 lg:flex-1"
             imgClassName="aspect-[3/4] lg:aspect-auto lg:h-full"
           />
@@ -331,6 +339,24 @@ export function ItemScreen({
         </div>
 
         {details ? editor : null}
+
+        {zoom !== null ? (
+          <PhotoZoom
+            photos={faces.map((i) => ({
+              id: photos[i].id,
+              src: photos[i].src,
+              fallback: photos[i].fallback,
+              alt: labels[i],
+            }))}
+            start={Math.max(0, faces.indexOf(zoom))}
+            onClose={(at) => {
+              // Back on the face that was last in view, not the one it
+              // opened on.
+              setIndex(faces[at]);
+              setZoom(null);
+            }}
+          />
+        ) : null}
       </div>
     </>
   );

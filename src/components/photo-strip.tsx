@@ -21,7 +21,8 @@ export type StripPhoto = {
  * gesture.
  *
  * A swipe inside a link must not also follow the link, so a drag that moved
- * far enough swallows the click that ends it.
+ * far enough swallows the click that ends it. For the same reason a swipe
+ * never opens the photo when `onOpen` is given; only a click that stayed put.
  */
 export function PhotoStrip({
   photos,
@@ -29,12 +30,15 @@ export function PhotoStrip({
   onIndexChange,
   className = "",
   imgClassName = "",
+  onOpen,
 }: {
   photos: StripPhoto[];
   index: number;
   onIndexChange: (index: number) => void;
   className?: string;
   imgClassName?: string;
+  /** A click opens the photo in view larger; the cursor says so. */
+  onOpen?: (index: number) => void;
 }) {
   const [drag, setDrag] = useState<{ startX: number; dx: number } | null>(null);
   const swiped = useRef(false);
@@ -79,10 +83,34 @@ export function PhotoStrip({
           event.preventDefault();
           event.stopPropagation();
           swiped.current = false;
+        } else {
+          onOpen?.(index);
         }
       }}
+      onKeyDown={
+        onOpen
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpen(index);
+              }
+            }
+          : undefined
+      }
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      aria-label={onOpen ? "View full screen" : undefined}
       className={`overflow-hidden [touch-action:pan-y] select-none ${className}`}
-      style={{ cursor: swipeable ? (drag ? "grabbing" : "grab") : undefined }}
+      style={{
+        cursor:
+          drag && Math.abs(drag.dx) > 8
+            ? "grabbing"
+            : onOpen
+              ? "zoom-in"
+              : swipeable
+                ? "grab"
+                : undefined,
+      }}
     >
       <div
         className="flex h-full"
