@@ -320,8 +320,10 @@ export function ClosetBrowser({
       {/* Category and brand sit on the left gutter, sort and colour on the
           right, all flush with the header above them; the grid takes what
           is left. Colour is the short list, so it balances the long one. */}
-      <div className="lg:flex lg:gap-16">
-        <aside className="hidden w-44 shrink-0 lg:block">
+      {/* The columns' words are a step smaller than the grid's, and sit
+          close to it, so the width goes to the garments. */}
+      <div className="lg:flex lg:gap-8">
+        <aside className="hidden w-40 shrink-0 text-11 lg:block [&_.label]:text-11">
           {categoryList}
           {brandList}
         </aside>
@@ -335,7 +337,7 @@ export function ClosetBrowser({
           />
         </div>
 
-        <aside className="hidden w-28 shrink-0 lg:block">
+        <aside className="hidden w-28 shrink-0 text-11 lg:block [&_.label]:text-11">
           {sortList}
           {colourList}
         </aside>

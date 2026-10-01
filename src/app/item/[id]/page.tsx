@@ -5,6 +5,7 @@ import { ItemScreen } from "@/components/item-screen";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { knownBrands } from "@/lib/brands";
+import { missingViews, viewRank } from "@/lib/capture-shots";
 import { largePathFor, tilePathFor } from "@/lib/storage";
 import { garment, measurement, photo, type PhotoView } from "@/db/schema";
 import {
@@ -15,9 +16,6 @@ import {
 
 export const metadata = { title: "Item" };
 
-/** Front first, then back, then the details in the order they were shot. */
-const viewOrder = (view: string) =>
-  view === "front" ? 0 : view === "back" ? 1 : 2;
 export const dynamic = "force-dynamic";
 
 /**
@@ -44,13 +42,13 @@ export default async function ItemPage({
     .where(and(eq(photo.garmentId, id), eq(photo.ownerId, OWNER_ID)))
     .orderBy(asc(photo.view));
 
-  // Half-captured garments go back to capture, the same as the measure route.
-  if (!photos.some((p) => p.view === "front")) {
-    redirect(`/capture?garment=${id}&view=front`);
-  }
-  if (!photos.some((p) => p.view === "back")) {
-    redirect(`/capture?garment=${id}&view=back`);
-  }
+  // Half-captured items go back to capture for their first missing shot.
+  const category = row.category as Category;
+  const [absent] = missingViews(
+    category,
+    photos.map((p) => p.view),
+  );
+  if (absent) redirect(`/capture?garment=${id}&view=${absent}`);
 
   const existing = await db
     .select({ key: measurement.key, valueMm: measurement.valueMm })
@@ -58,8 +56,6 @@ export default async function ItemPage({
     .where(
       and(eq(measurement.garmentId, id), eq(measurement.ownerId, OWNER_ID)),
     );
-
-  const category = row.category as Category;
 
   return (
     <ItemScreen
@@ -74,7 +70,9 @@ export default async function ItemPage({
       photos={photos
         .sort(
           (a, b) =>
-            viewOrder(a.view) - viewOrder(b.view) ||
+            // The cover first, then the other shots in order, then details
+            // in the order they were taken.
+            viewRank(category, a.view) - viewRank(category, b.view) ||
             a.takenAt.getTime() - b.takenAt.getTime(),
         )
         .map((p) => ({

@@ -207,6 +207,20 @@ def _pick_device(torch) -> str:
     return wanted
 
 
+# With no markers, the middle of the frame, as a fraction of each side.
+CENTRAL_MARGIN = 0.2
+
+
+def _central_region(shape: tuple[int, int]) -> np.ndarray:
+    h, w = shape
+    region = np.zeros((h, w), dtype=bool)
+    region[
+        int(h * CENTRAL_MARGIN) : int(h * (1 - CENTRAL_MARGIN)),
+        int(w * CENTRAL_MARGIN) : int(w * (1 - CENTRAL_MARGIN)),
+    ] = True
+    return region
+
+
 def _keep_garment(alpha: Image.Image, sheet_quad: Sequence[Any] | None) -> Image.Image:
     """
     Keep the garment, and only the garment.
@@ -223,14 +237,21 @@ def _keep_garment(alpha: Image.Image, sheet_quad: Sequence[Any] | None) -> Image
     guillotined a denim jacket's cuff, laid with its sleeves wider than the
     markers, in a straight line at the side margin. A kept piece is kept
     whole, and the feet, a separate piece off the rig, are still dropped.
+
+    A shoe's side and angled shots have no markers. There the middle of the
+    frame stands in for the rig: the shoe is what the photo was pointed at,
+    and the other shoe of the pair or a chair leg at the edge is not.
     """
     scale = min(1.0, KEEP_MAX_DIMENSION / max(alpha.size))
     size = (max(1, round(alpha.width * scale)), max(1, round(alpha.height * scale)))
     small = np.asarray(alpha.resize(size, Image.Resampling.BILINEAR)) > 127
     h, w = small.shape
 
-    allowed = _sheet_mask(sheet_quad, scale, (h, w), 0, OVERHANG_X, OVERHANG_Y)
-    rig = _sheet_mask(sheet_quad, scale, (h, w), 0)
+    if sheet_quad:
+        allowed = _sheet_mask(sheet_quad, scale, (h, w), 0, OVERHANG_X, OVERHANG_Y)
+        rig = _sheet_mask(sheet_quad, scale, (h, w), 0)
+    else:
+        allowed = rig = _central_region((h, w))
     labels, count = ndimage.label(small)
     if count == 0:
         return alpha

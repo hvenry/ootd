@@ -7,7 +7,7 @@ Defined in `globals.css`. Never hard-code a value.
 ```
 --bg #FFF   --fg #000   --fg2 #000   --fg3 #8C8C8C   --rule #EBEBEB
 --danger #C0271B   outline and text only, only on Remove from closet
---gutter 12px / 20px (md)       --header-h 62px / 86px (lg)
+--gutter 12px / 20px (md)       --header-h 62px / 64px (lg)
 --main-pb 6rem   --screen-gap 1.5rem   --sheet-duration 300ms
 --item-aside-top 38vh   --measure-photo-h 60dvh
 ```
@@ -24,7 +24,9 @@ swatches, which are the clothes.
 
 The scale is 10, 11, 12, 15, 19 and 24px, then display, and body text is
 13px. Text fields are 16px on touch screens, because iOS zooms into anything
-smaller. `.label` is 12px uppercase with no tracking, and `.wordmark` (26px, 600) is the one bold element.
+smaller. `.label` is 12px uppercase with no tracking; the desktop header and
+the closet's filter columns set it, and their rows, at 11px so the garments
+lead, and `.wordmark` (26px, 600) is the one bold element.
 
 ## Layout
 

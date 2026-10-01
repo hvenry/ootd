@@ -28,6 +28,7 @@ export async function loadRig(
         diag2: row.diag2Mm ?? undefined,
       },
       blackSquareMm: row.blackSquareMm,
+      a3BlackSquareMm: row.a3BlackSquareMm,
     },
     source: "saved",
   };

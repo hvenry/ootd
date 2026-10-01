@@ -32,7 +32,9 @@ export function Nav() {
         <NavCompact />
       </div>
 
-      <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4">
+      {/* The chrome is set a step under the content's labels, so the
+          garments are what the page is about. */}
+      <div className="hidden lg:flex lg:items-center lg:justify-between lg:gap-4 [&_.label]:text-11">
         <nav className="flex flex-1 justify-start gap-6">
           {LINKS.map((link) => (
             <NavLink key={link.href} href={link.href}>

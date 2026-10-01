@@ -7,8 +7,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { finishCapture } from "@/app/actions";
 import { useActivity } from "@/components/activity";
 import { DetailShots } from "@/components/detail-shots";
+import { ItemIcon } from "@/components/category-tile";
 import { GarmentForm, type GarmentDraft } from "@/components/garment-form";
-import { GarmentOutline } from "@/components/garment-hint";
+import {
+  CLOSEUP_HINT,
+  shotFor,
+  shotKindFor,
+  shotsFor,
+  type Shot,
+} from "@/lib/capture-shots";
 import type { KnownBrand } from "@/lib/search/brands";
 import {
   detectSheet,
@@ -18,14 +25,14 @@ import {
 import {
   quadCheckMm,
   RIG_TOLERANCE_MM,
-  SHEET_VERSION,
   sheetCanvasSize,
   type Rig,
 } from "@/lib/homography/sheet";
 import { fileToCanvas, renderWarpPreview } from "@/lib/homography/warp";
-import { silhouetteFor, type PhotoView } from "@/lib/measure/templates";
+import type { Category, PhotoView } from "@/lib/measure/templates";
 
-type Mode = "idle" | "detecting" | "found" | "failed" | "saving";
+/** `ready` is a photo taken off the markers: nothing to detect, only to save. */
+type Mode = "idle" | "detecting" | "found" | "ready" | "failed" | "saving";
 /**
  * Details first, then one photograph per face, then any close-ups. The
  * close-ups are their own stage because they skip everything the faces
@@ -39,19 +46,26 @@ const PREVIEW_MAX_PX = 900;
 /** Both previews sit in the same box, so the two agree by construction. */
 const PREVIEW_CLASS = "block h-auto max-h-[70vh] w-full object-contain";
 
-const VIEW_LABELS: Record<PhotoView, string> = {
-  front: "Front",
-  back: "Back",
-  detail: "Detail",
-};
+/** A view reshot on its own for an item whose category was not found. */
+function fallbackShot(view: PhotoView): Shot {
+  return {
+    view,
+    label: view[0].toUpperCase() + view.slice(1),
+    instruction: "Flat, inside the four markers, shot straight down.",
+    markers: ["rig", "a3"],
+  };
+}
 
 export function CaptureScreen({
   brands,
   rig,
+  existingCategory,
 }: {
   brands: KnownBrand[];
   /** Read per request from Settings, so a re-measured rig needs no rebuild. */
   rig: Rig;
+  /** The category of the item a single view is being added to. */
+  existingCategory: Category | null;
 }) {
   const router = useRouter();
   const { toast } = useActivity();
@@ -79,11 +93,19 @@ export function CaptureScreen({
     brand: "",
     name: "",
   });
-  /** Set the moment the front is uploaded; every later view attaches to it. */
+  /** Set the moment the first shot is uploaded; every later one attaches to it. */
   const [garmentId, setGarmentId] = useState<string | null>(existingGarmentId);
-  const [shooting, setShooting] = useState<PhotoView>(
-    singleView ? requestedView : "front",
-  );
+  /** Which of the category's shots is being taken. */
+  const [shotIndex, setShotIndex] = useState(0);
+
+  // A shoe is five photographs and a belt one; which, and how each is
+  // taken, is the category's shot list.
+  const category = draft.category ?? existingCategory;
+  const shots = category ? shotsFor(category) : [fallbackShot("front")];
+  const shot: Shot = singleView
+    ? ((category ? shotFor(category, requestedView) : undefined) ??
+      fallbackShot(requestedView))
+    : shots[Math.min(shotIndex, shots.length - 1)];
 
   const [mode, setMode] = useState<Mode>("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -142,7 +164,7 @@ export function CaptureScreen({
     const host = previewHostRef.current;
     const source = sourceRef.current;
     if (!detection || !host || !source) return;
-    const { width, height } = sheetCanvasSize(rig);
+    const { width, height } = sheetCanvasSize(rig, detection.layout);
     const preview = renderWarpPreview(
       source,
       detection.homography,
@@ -199,10 +221,17 @@ export function CaptureScreen({
           `${canvas.width}×${canvas.height}`,
       );
 
+      // Off the markers there is nothing to find: the photo is only a
+      // reference for the image model.
+      if (!shot.markers) {
+        setMode("ready");
+        return;
+      }
+
       // Yield once so the frame paints before the detector blocks the thread.
       await new Promise((r) => setTimeout(r, 0));
 
-      const result = detectSheet(canvas, rig);
+      const result = detectSheet(canvas, rig, shot.markers);
       if (isDetectionFailure(result)) {
         setMode("failed");
         setMessage(
@@ -225,30 +254,30 @@ export function CaptureScreen({
 
   async function onSave() {
     const file = fileRef.current;
-    if (!file || !detection) return;
+    if (!file || (shot.markers && !detection)) return;
 
     setMode("saving");
     const form = new FormData();
     form.set("image", file);
-    form.set(
-      "calibration",
-      JSON.stringify({
-        m: detection.homography,
-        pxPerMm: detection.pxPerMm,
-        // The version markers are no longer printed, so this normally comes
-        // from configuration; a rig that does carry them still wins.
-        sheetVersion: detection.sheetVersion ?? SHEET_VERSION,
-        greyPatchRgb: detection.greyPatchRgb,
-        // The marker quad bounds the garment; the cutout needs it to know
-        // which surface is background.
-        cornersInImage: detection.cornersInImage,
-        source: "sheet",
-      }),
-    );
+    form.set("view", shot.view);
+    if (detection) {
+      form.set(
+        "calibration",
+        JSON.stringify({
+          m: detection.homography,
+          pxPerMm: detection.pxPerMm,
+          sheetVersion: detection.sheetVersion,
+          greyPatchRgb: detection.greyPatchRgb,
+          // The marker quad bounds the garment; the cutout needs it to know
+          // which surface is background.
+          cornersInImage: detection.cornersInImage,
+          source: detection.layout === "a3" ? "a3" : "sheet",
+        }),
+      );
+    }
 
     let response: Response;
     if (garmentId) {
-      form.set("view", shooting);
       response = await fetch(`/api/garments/${garmentId}/photos`, {
         method: "POST",
         body: form,
@@ -268,20 +297,20 @@ export function CaptureScreen({
     }
 
     if (!response.ok) {
-      setMode("found");
+      setMode(detection ? "found" : "ready");
       setMessage("Could not save. Check the server log.");
       return;
     }
 
     const { garmentId: id } = (await response.json()) as { garmentId: string };
 
-    // The front creates the garment; the back is the same flow one step on.
-    // Both faces are required before measuring, so there is no way past here
-    // that skips it: the measure screen sends you back if one is missing.
-    if (!singleView && shooting === "front") {
+    // The first shot creates the garment; the rest are the same flow a step
+    // on. Every shot is required before the item is in the closet, so there
+    // is no way past here that skips one: the item page sends you back.
+    if (!singleView && shotIndex + 1 < shots.length) {
       setGarmentId(id);
       clearShot();
-      setShooting("back");
+      setShotIndex(shotIndex + 1);
       window.scrollTo({ top: 0 });
       return;
     }
@@ -294,10 +323,10 @@ export function CaptureScreen({
       window.scrollTo({ top: 0 });
       return;
     }
-    // Reshooting the face an unfinished capture was missing completes it;
-    // with a face still missing this does nothing and the item page sends
-    // you back for it.
-    if (shooting !== "detail") {
+    // Reshooting the view an unfinished capture was missing completes it;
+    // with one still missing this does nothing and the item page sends you
+    // back for it.
+    if (shot.view !== "detail") {
       const { added } = await finishCapture(id).catch(() => ({ added: false }));
       if (added) toast({ message: "Added to closet", href: `/item/${id}` });
     }
@@ -338,19 +367,13 @@ export function CaptureScreen({
   // in the environment is wrong, and every measurement inherits it silently.
   const rigResidual = quadCheckMm(rig.quad);
 
-  // Trousers lay out differently from a shirt, so the guide follows the
-  // category instead of always drawing a top.
-  const captureSilhouette = draft.category
-    ? silhouetteFor(draft.category)
-    : null;
-
   const detailsComplete =
     draft.category !== null &&
     draft.colour !== "" &&
     draft.brand.trim() !== "" &&
     draft.name.trim() !== "";
 
-  const viewWord = VIEW_LABELS[shooting].toLowerCase();
+  const viewWord = shot.label.toLowerCase();
 
   /** The line under the picture: what is happening, or why it stopped. */
   function detectionNote(): string | null {
@@ -359,6 +382,8 @@ export function CaptureScreen({
         return "Detecting markers…";
       case "failed":
         return message ?? "Markers not found.";
+      case "ready":
+        return "Off the markers · a reference, not measured";
       default:
         if (!detection) return null;
         return `${detection.markerIds.length} markers · ${detection.pxPerMm} px/mm`;
@@ -410,6 +435,10 @@ export function CaptureScreen({
           garmentId={garmentId}
           doneLabel={singleView ? "Done" : "Add to closet"}
           onDone={() => onCloseupsDone(false)}
+          hint={category ? CLOSEUP_HINT[shotKindFor(category)] : null}
+          initialKind={
+            category && shotKindFor(category) === "belt" ? "hardware" : "label"
+          }
           secondary={
             singleView
               ? undefined
@@ -419,20 +448,25 @@ export function CaptureScreen({
       ) : (
         <>
           {/* The shape to lay out and the one rule that matters. Everything
-              else the rig needs is on the printed pages. */}
+              else the rig needs is on the printed pages. Trousers lay out
+              differently from a shirt, so the drawing follows the category. */}
           <div className="mb-6 flex items-center gap-5">
-            {captureSilhouette ? (
-              <GarmentOutline
-                silhouette={captureSilhouette}
-                category={draft.category}
-                size={56}
-              />
+            {category ? (
+              <span className="block h-14 w-14 shrink-0" aria-hidden>
+                <ItemIcon category={category} />
+              </span>
             ) : null}
             <div>
-              <p className="label">{VIEW_LABELS[shooting]}</p>
-              <p className="text-fg2 mt-1 text-12">
-                Flat, inside the four markers, shot straight down.
+              <p className="label">
+                {shot.label}
+                {!singleView && shots.length > 2 ? (
+                  <span className="data text-fg3">
+                    {"  "}
+                    {shotIndex + 1} of {shots.length}
+                  </span>
+                ) : null}
               </p>
+              <p className="text-fg2 mt-1 text-12">{shot.instruction}</p>
               {!singleView && draft.brand ? (
                 <p className="data text-fg3 mt-1">
                   {draft.brand} · {draft.name}
@@ -494,9 +528,9 @@ export function CaptureScreen({
             </>
           )}
 
-          {/* Only once the markers are found: before that there is nothing
-              to advance to. */}
-          {detection ? (
+          {/* Only once the markers are found, or the photo needs none:
+              before that there is nothing to advance to. */}
+          {detection || mode === "ready" || (mode === "saving" && !shot.markers) ? (
             <div className="mt-10 flex justify-center">
               <button
                 type="button"

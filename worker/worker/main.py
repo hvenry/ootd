@@ -127,7 +127,16 @@ TILE_MAX_HEIGHT = 1600
 # width and a third of its height, and the closet read as thumbnails. As
 # shot, the median top spans 1060 mm and nine in ten under 1270 mm, so at
 # 1300 mm a tee fills four fifths and only the widest few are shrunk.
-TILE_CANVAS_MM = {"top": (1300, 1733), "bottom": (1000, 1333)}
+#
+# A shoe's top-down shot and a belt laid in a U are far smaller than either,
+# so they get canvases of their own: the largest boot is about 320 mm long,
+# and a belt's U about 550 mm across.
+TILE_CANVAS_MM = {
+    "top": (1300, 1733),
+    "bottom": (1000, 1333),
+    "shoe": (300, 400),
+    "belt": (700, 933),
+}
 # Enough for a tile three across on a retina screen. At 0.8 a tee came out
 # 660 px wide, and the item page, which blew the tile up to show the garment
 # alone, was visibly soft.

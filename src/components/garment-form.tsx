@@ -15,7 +15,7 @@ import type { KnownBrand } from "@/lib/search/brands";
 import { CATEGORY_GRID, CategoryTile } from "@/components/category-tile";
 
 export type GarmentDraft = {
-  /** Tops, bottoms or outerwear; picked first, and it decides what is offered. */
+  /** Tops, bottoms, outerwear, or footwear and accessories; picked first, and it decides what is offered. */
   group: Group | null;
   /** null until the person picks one; nothing is preselected */
   category: Category | null;
@@ -25,12 +25,9 @@ export type GarmentDraft = {
   colour: string;
 };
 
-const GROUPS: Group[] = ["top", "bottom", "outerwear"];
+const GROUPS: Group[] = ["top", "bottom", "outerwear", "accessories"];
 
-/**
- * The types on offer once a group is picked. Shoes and hats are sized, not
- * measured, and are not offered here yet.
- */
+/** The types on offer once a group is picked. Hats are not offered yet. */
 function offered(draft: GarmentDraft): Category[] {
   return draft.group ? categoriesIn(draft.group) : [];
 }

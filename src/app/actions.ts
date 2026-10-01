@@ -8,6 +8,7 @@ import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { OWNER_ID } from "@/config/brand";
 import { db } from "@/db";
 import { garment, job, measurement, photo, rig } from "@/db/schema";
+import { missingViews, shotKindFor } from "@/lib/capture-shots";
 import { isDeclaredColour } from "@/lib/colour/declared";
 import { quadCheckMm, solveQuadMm } from "@/lib/homography/sheet";
 import { newId } from "@/lib/ids";
@@ -134,22 +135,26 @@ export async function saveMeasurements(input: {
  * carry on in the background and measuring is prompted for later. It still
  * has to happen before a garment is standardised.
  *
- * A no-op until both faces exist, so it is safe to call after any photo.
+ * A no-op until every shot the category needs exists (both faces, or a
+ * shoe's five), so it is safe to call after any photo.
  */
 export async function finishCapture(
   garmentId: string,
 ): Promise<{ added: boolean }> {
-  const faces = await db
+  const [owned] = await db
+    .select({ category: garment.category })
+    .from(garment)
+    .where(and(eq(garment.id, garmentId), eq(garment.ownerId, OWNER_ID)));
+  if (!owned) return { added: false };
+  const shot = await db
     .select({ view: photo.view })
     .from(photo)
-    .where(
-      and(
-        eq(photo.garmentId, garmentId),
-        eq(photo.ownerId, OWNER_ID),
-        inArray(photo.view, ["front", "back"]),
-      ),
-    );
-  if (faces.length < 2) return { added: false };
+    .where(and(eq(photo.garmentId, garmentId), eq(photo.ownerId, OWNER_ID)));
+  const missing = missingViews(
+    owned.category as Category,
+    shot.map((p) => p.view),
+  );
+  if (missing.length > 0) return { added: false };
 
   const updated = await db
     .update(garment)
@@ -270,6 +275,14 @@ export async function updateGarmentDetails(
   const nextCategory = fields.category;
   const categoryChanged =
     nextCategory !== undefined && nextCategory !== existing.category;
+  // A shirt cannot become a shoe: its photographs are front and back, and a
+  // shoe's are five others, so the item would be missing every one of them.
+  if (
+    categoryChanged &&
+    shotKindFor(nextCategory) !== shotKindFor(existing.category as Category)
+  ) {
+    throw new Error("That category is photographed differently");
+  }
 
   let droppedKeys: MeasurementKey[] = [];
 
@@ -360,6 +373,7 @@ export type RigInput = {
   diagMm: number;
   diag2Mm: number | null;
   blackSquareMm: number | null;
+  a3BlackSquareMm: number | null;
 };
 
 /** A tape reading, as the whole millimetre the schema stores, or why not. */
@@ -403,6 +417,10 @@ export async function saveRig(
         input.blackSquareMm === null
           ? null
           : rigLength("Black square", input.blackSquareMm, 50, 120),
+      a3BlackSquareMm:
+        input.a3BlackSquareMm === null
+          ? null
+          : rigLength("A3 black square", input.a3BlackSquareMm, 20, 45),
     };
   } catch (error) {
     return { ok: false, error: (error as Error).message };

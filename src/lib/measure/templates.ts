@@ -587,9 +587,12 @@ const SILHOUETTE_BY_CATEGORY: Record<Category, Silhouette | null> = {
   jeans: "bottom",
   sweatpants: "bottom",
   shorts: "shorts",
-  // Sized, never measured: a labelled size is the whole record for these.
+  // Not flat garments. Shoes and belts get their own templates later
+  // (docs/features/11-footwear-accessories.md); a hat is sized, not measured.
   shoe: null,
   hat: null,
+  boot: null,
+  belt: null,
 };
 
 export function silhouetteFor(category: Category): Silhouette | null {
@@ -600,14 +603,16 @@ export function silhouetteFor(category: Category): Silhouette | null {
  * The first question when adding a garment. Outerwear is measured exactly
  * like a long-sleeve top; it is its own group because that is how a closet
  * is sorted in your head, and because a jacket filed among twelve tops is
- * a jacket nobody finds.
+ * a jacket nobody finds. Footwear and accessories are photographed their
+ * own way (`lib/capture-shots`).
  */
-export type Group = "top" | "bottom" | "outerwear";
+export type Group = "top" | "bottom" | "outerwear" | "accessories";
 
 export const GROUP_LABELS: Record<Group, string> = {
   top: "Tops",
   bottom: "Bottoms",
   outerwear: "Outerwear",
+  accessories: "Footwear & Accessories",
 };
 
 const GROUP_BY_CATEGORY: Record<Category, Group | null> = {
@@ -629,7 +634,10 @@ const GROUP_BY_CATEGORY: Record<Category, Group | null> = {
   jeans: "bottom",
   sweatpants: "bottom",
   shorts: "bottom",
-  shoe: null,
+  shoe: "accessories",
+  boot: "accessories",
+  belt: "accessories",
+  // Not offered until it has a way to be photographed.
   hat: null,
 };
 
@@ -667,11 +675,17 @@ export function isBottomSilhouette(silhouette: Silhouette | null): boolean {
   return silhouette === "bottom" || silhouette === "shorts";
 }
 
+export type TileScale = "top" | "bottom" | "shoe" | "belt";
+
 /**
  * Which shared scale the worker draws a garment's tile at. Outerwear sits
- * with the tops: laid flat, a jacket is a top's shape and size.
+ * with the tops: laid flat, a jacket is a top's shape and size. Shoes and
+ * belts are far smaller than either and get canvases of their own.
+ * worker/worker/retile.py mirrors this.
  */
-export function tileScaleFor(category: Category): "top" | "bottom" {
+export function tileScaleFor(category: Category): TileScale {
+  if (category === "shoe" || category === "boot") return "shoe";
+  if (category === "belt") return "belt";
   return isBottomSilhouette(silhouetteFor(category)) ? "bottom" : "top";
 }
 
@@ -732,6 +746,8 @@ export const DEFAULT_LAYER_SLOT: Record<Category, LayerSlot> = {
   shorts: "bottom",
   shoe: "footwear",
   hat: "headwear",
+  boot: "footwear",
+  belt: "accessory",
 };
 
 /** Also the order categories are offered in within each group. */
@@ -754,6 +770,8 @@ export const CATEGORY_LABELS: Record<Category, string> = {
   pants: "Pants",
   sweatpants: "Sweatpants",
   shorts: "Shorts",
-  shoe: "Shoe",
+  shoe: "Shoes",
+  boot: "Boots",
+  belt: "Belt",
   hat: "Hat",
 };

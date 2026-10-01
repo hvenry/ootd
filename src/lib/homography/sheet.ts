@@ -127,14 +127,39 @@ export const SUGGESTED_SPANS = [
   { label: "Pants, jeans", xMm: 700, yMm: 1300 },
 ] as const;
 
-/** Single-sheet A3 layout — only useful for small flat items. */
+/**
+ * Single-sheet A3 layout, for shoes. A shoe stands inside the strip between
+ * the corner markers, 187 mm wide and the sheet's full 420 mm long.
+ */
 export const SHEET_WIDTH_MM = 297;
 export const SHEET_HEIGHT_MM = 420;
 export const MARKER_SIZE_MM = 40;
 export const SHEET_MARGIN_MM = 15;
 
-/** Corner marker IDs, clockwise from top-left. Reserved; never reuse. */
+/** Corner marker IDs of the taped rig, clockwise from top-left. Reserved. */
 export const CORNER_IDS = [0, 1, 2, 3] as const;
+
+/**
+ * The A3 sheet's corner IDs, clockwise from top-left. Its own, because a
+ * sheet printing 0 to 3 is indistinguishable from the rig, and capture would
+ * solve it with the rig's spans: a shoe read at three times its size. With
+ * distinct IDs the photo says which layout it was shot on.
+ */
+export const A3_CORNER_IDS = [4, 5, 6, 7] as const;
+
+/** Version 1 printed the rig's IDs; version 2 is the first with its own. */
+export const A3_SHEET_VERSION = 2;
+
+/** 0.8 of the marker, as on the tiles. */
+export const A3_BLACK_SQUARE_MM = MARKER_SIZE_MM * MARKER_BLACK_RATIO;
+
+/** Which printed markers a photo was solved against. */
+export type Layout = "rig" | "a3";
+
+export const LAYOUT_IDS: Record<Layout, readonly number[]> = {
+  rig: CORNER_IDS,
+  a3: A3_CORNER_IDS,
+};
 
 /**
  * Two reserved IDs *can* encode the sheet version, for a future where several
@@ -171,7 +196,7 @@ export function sheetVersionFromIds(ids: readonly number[]): number | null {
   return null;
 }
 
-/** Nominal centre-to-centre spacing, before the printer gets involved. */
+/** The A3 sheet's centre-to-centre spacing, before the printer gets involved. */
 export const NOMINAL_SPACING_X_MM =
   SHEET_WIDTH_MM - 2 * (SHEET_MARGIN_MM + MARKER_SIZE_MM / 2);
 export const NOMINAL_SPACING_Y_MM =
@@ -206,7 +231,12 @@ export type MeasuredQuad = {
  * as (null for a print assumed perfect). Saved from Settings; see
  * `src/lib/rig.ts` for where it is read.
  */
-export type Rig = { quad: MeasuredQuad; blackSquareMm: number | null };
+export type Rig = {
+  quad: MeasuredQuad;
+  blackSquareMm: number | null;
+  /** What the A3 sheet's black square measures, null for a perfect print. */
+  a3BlackSquareMm: number | null;
+};
 
 function envNumber(raw: string | undefined, fallback: number): number {
   const n = Number(raw);
@@ -241,6 +271,7 @@ export function rigFromEnv(): Rig {
   return {
     quad: { top, right, bottom, left, diag, diag2 },
     blackSquareMm: Number.isFinite(square) && square > 0 ? square : null,
+    a3BlackSquareMm: null,
   };
 }
 
@@ -379,11 +410,45 @@ export function sheetCanvasCorners(rig: Rig): Point[] {
   return mm.map((p) => ({ x: p.x * PX_PER_MM, y: p.y * PX_PER_MM }));
 }
 
-export function sheetCanvasSize(rig: Rig): {
+/**
+ * The A3 sheet's marker centres in canvas pixels. Its spans are fixed by the
+ * print, so the only thing to correct is the printer's scale, read off the
+ * black square; the whole sheet scales with it.
+ */
+export function a3CanvasCorners(a3BlackSquareMm: number | null): Point[] {
+  const k = a3PrintScale(a3BlackSquareMm);
+  const w = NOMINAL_SPACING_X_MM * k * PX_PER_MM;
+  const h = NOMINAL_SPACING_Y_MM * k * PX_PER_MM;
+  return [
+    { x: 0, y: 0 },
+    { x: w, y: 0 },
+    { x: w, y: h },
+    { x: 0, y: h },
+  ];
+}
+
+function a3PrintScale(blackSquareMm: number | null): number {
+  if (blackSquareMm === null || !Number.isFinite(blackSquareMm) || blackSquareMm <= 0) {
+    return 1;
+  }
+  return blackSquareMm / A3_BLACK_SQUARE_MM;
+}
+
+/** Destination points for whichever layout was found. */
+export function layoutCanvasCorners(layout: Layout, rig: Rig): Point[] {
+  return layout === "a3"
+    ? a3CanvasCorners(rig.a3BlackSquareMm)
+    : sheetCanvasCorners(rig);
+}
+
+export function sheetCanvasSize(
+  rig: Rig,
+  layout: Layout = "rig",
+): {
   width: number;
   height: number;
 } {
-  const corners = sheetCanvasCorners(rig);
+  const corners = layoutCanvasCorners(layout, rig);
   return {
     width: Math.round(Math.max(...corners.map((c) => c.x))),
     height: Math.round(Math.max(...corners.map((c) => c.y))),
@@ -416,6 +481,15 @@ export const WHITE_PATCH = {
 } as const;
 
 /**
+ * The A3 sheet's patches. The rig's offsets put them above the top-left
+ * marker, which on A3 is off the paper, so here they sit in the top band
+ * between the two top markers, level with their centres, where the shoe
+ * never reaches.
+ */
+export const A3_GREY_PATCH = { ...GREY_PATCH, offsetXMm: 85, offsetYMm: 0 } as const;
+export const A3_WHITE_PATCH = { ...WHITE_PATCH, offsetXMm: 142, offsetYMm: 0 } as const;
+
+/**
  * Millimetres from the top-left marker centre to metric canvas pixels,
  * scaled by however the sheet actually printed.
  */
@@ -426,4 +500,16 @@ export function offsetMmToCanvas(
 ): Point {
   const k = printScale(blackSquareMm);
   return { x: xMm * k * PX_PER_MM, y: yMm * k * PX_PER_MM };
+}
+
+/** Where the neutral patch is in the canvas, on either layout. */
+export function greyPatchCanvas(layout: Layout, rig: Rig): Point {
+  if (layout === "a3") {
+    const k = a3PrintScale(rig.a3BlackSquareMm);
+    return {
+      x: A3_GREY_PATCH.offsetXMm * k * PX_PER_MM,
+      y: A3_GREY_PATCH.offsetYMm * k * PX_PER_MM,
+    };
+  }
+  return offsetMmToCanvas(GREY_PATCH.offsetXMm, GREY_PATCH.offsetYMm, rig.blackSquareMm);
 }

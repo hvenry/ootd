@@ -22,6 +22,17 @@ log = logging.getLogger(__name__)
 
 # Mirrors tileScaleFor in src/lib/measure/templates.ts.
 BOTTOMS = {"pants", "jeans", "sweatpants", "shorts"}
+SHOES = {"shoe", "boot"}
+
+
+def tile_scale(category: str) -> str:
+    if category in BOTTOMS:
+        return "bottom"
+    if category in SHOES:
+        return "shoe"
+    if category == "belt":
+        return "belt"
+    return "top"
 
 
 def main() -> None:
@@ -46,7 +57,7 @@ def main() -> None:
                 cutout,
                 homography.get("m"),
                 homography.get("pxPerMm"),
-                "bottom" if row["category"] in BOTTOMS else "top",
+                tile_scale(row["category"]),
             )
             if tile is None or bounds is None:
                 log.warning("empty cutout for photo %s", row["id"])

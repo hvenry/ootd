@@ -31,6 +31,10 @@ export default async function MeasurePage({
     .from(garment)
     .where(and(eq(garment.id, id), eq(garment.ownerId, OWNER_ID)));
   if (!row) notFound();
+  // Shoes and belts have no template yet: nothing here to place.
+  if (templateFor(row.category as Category).length === 0) {
+    redirect(`/item/${id}`);
+  }
 
   // "Measure now" in the add flow ends in the closet; working through the
   // closet's to-measure queue goes on to the next unmeasured garment; an

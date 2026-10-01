@@ -1,7 +1,13 @@
-import { and, asc, eq, isNotNull, notExists, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, notExists, notInArray, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { garment, measurement } from "@/db/schema";
+import { categoryEnum, garment, measurement } from "@/db/schema";
+import { templateFor } from "@/lib/measure/templates";
+
+/** Categories with nothing to measure yet, which never join the queue. */
+const UNMEASURED = categoryEnum.enumValues.filter(
+  (c) => templateFor(c).length === 0,
+);
 
 /**
  * Garments in the closet with no measurements yet, oldest first: the order
@@ -16,6 +22,7 @@ export async function unmeasuredGarments(ownerId: string) {
       and(
         eq(garment.ownerId, ownerId),
         isNotNull(garment.completedAt),
+        notInArray(garment.category, UNMEASURED),
         notExists(
           db
             .select({ one: sql`1` })

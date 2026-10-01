@@ -30,8 +30,10 @@ solved with, so a changed rig applies from the next photo on and never moves
 an existing measurement. Accuracy is about ±1 to 3 mm over 50 cm, limited
 by how flat the garment lies.
 
-Shoes use the single A3 sheet instead, and belts lie in a U inside the rig:
-see `11-footwear-accessories.md`.
+Shoes use the single A3 sheet instead, which prints IDs 4 to 7 so capture
+knows it from the rig by the markers in frame and uses its fixed spans. Belts
+lie in a U inside the rig. The steps for each kind are in
+`lib/capture-shots.ts`; see `11-footwear-accessories.md`.
 
 ## Rules
 

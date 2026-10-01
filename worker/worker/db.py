@@ -102,8 +102,9 @@ def set_cutout_path(
     bounds: dict[str, object] | None = None,
 ) -> str | bool | None:
     """
-    The cutout belongs to the photo. The garment also carries the *front*
-    cutout, denormalised, so the closet grid stays one query.
+    The cutout belongs to the photo. The garment also carries its cover
+    photo's cutout (the front, or a shoe's outer side), denormalised, so the
+    closet grid stays one query.
 
     Returns False if the photo is gone, otherwise the cutout path it had
     before (None on a first cut) so a re-cut can remove the file it replaced.
@@ -137,10 +138,12 @@ def set_cutout_path(
                 owner_id,
             ),
         )
-        if view == "front":
-            cur.execute(
-                "UPDATE garment SET cutout_path = %s WHERE id = %s AND owner_id = %s",
-                (path, garment_id, owner_id),
-            )
+        # Whichever photo the garment points at is its cover; `view` alone
+        # cannot say, since a belt's cover is its front and a shoe's is not.
+        cur.execute(
+            "UPDATE garment SET cutout_path = %s"
+            " WHERE id = %s AND owner_id = %s AND photo_id = %s",
+            (path, garment_id, owner_id, photo_id),
+        )
     conn.commit()
     return previous

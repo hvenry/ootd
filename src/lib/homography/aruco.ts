@@ -3,13 +3,15 @@ import type { ArucoMarker } from "js-aruco2";
 import { AR } from "./aruco-lib";
 
 import {
-  CORNER_IDS,
+  A3_SHEET_VERSION,
   DICTIONARY_NAME,
-  GREY_PATCH,
+  LAYOUT_IDS,
   PX_PER_MM,
-  offsetMmToCanvas,
-  sheetCanvasCorners,
+  SHEET_VERSION,
+  greyPatchCanvas,
+  layoutCanvasCorners,
   sheetVersionFromIds,
+  type Layout,
   type Rig,
 } from "./sheet";
 import {
@@ -39,9 +41,11 @@ export type SheetDetection = {
   /** Image pixels -> metric canvas pixels. */
   homography: Matrix3;
   pxPerMm: number;
+  /** Which printed markers were found, and so whose spans solved it. */
+  layout: Layout;
   /** Corner marker centres in the original image, clockwise from top-left. */
   cornersInImage: Point[];
-  sheetVersion: number | null;
+  sheetVersion: number;
   markerIds: number[];
   greyPatchRgb: [number, number, number] | null;
 };
@@ -56,14 +60,24 @@ export function detectMarkers(image: ImageData): ArucoMarker[] {
   return detector.detectImage(image.width, image.height, image.data);
 }
 
+const LAYOUT_NAMES: Record<Layout, string> = {
+  rig: "the taped rig",
+  a3: "the A3 sheet",
+};
+
 /**
- * Detect the sheet in a full-resolution frame and solve its homography.
+ * Detect the markers in a full-resolution frame and solve its homography.
  * Returns a failure describing what was seen rather than throwing, because
  * "three of four markers" is a UI hint, not an exception.
+ *
+ * The IDs in frame say which layout this is, the rig's (0 to 3) or the A3
+ * sheet's (4 to 7), so the right spans are used without anything being
+ * switched by hand. `allowed` is the layouts this shot may be taken on.
  */
 export function detectSheet(
   source: HTMLCanvasElement | OffscreenCanvas,
   rig: Rig,
+  allowed: readonly Layout[] = ["rig", "a3"],
 ): SheetDetection | DetectionFailure {
   const { imageData, scale } = downscaleForDetection(source);
   const markers = detectMarkers(imageData);
@@ -80,26 +94,45 @@ export function detectSheet(
     }
   }
 
-  const missing = CORNER_IDS.filter((id) => !byId.has(id));
-  if (missing.length > 0) {
+  // The layout with the most of its corners in frame is the one being used.
+  const seen = (layout: Layout) =>
+    LAYOUT_IDS[layout].filter((id) => byId.has(id)).length;
+  const layout: Layout = seen("a3") > seen("rig") ? "a3" : "rig";
+  const ids = LAYOUT_IDS[layout];
+  const found = seen(layout);
+
+  if (found === 0) {
     return {
-      reason:
-        missing.length === CORNER_IDS.length
-          ? "No sheet found. Fill more of the frame and shoot straight down."
-          : `Found ${CORNER_IDS.length - missing.length} of 4 corner markers. Keep all four corners in shot.`,
+      reason: "No markers found. Fill more of the frame and shoot straight down.",
+      markerIds,
+    };
+  }
+  if (!allowed.includes(layout)) {
+    const wanted = allowed.map((l) => LAYOUT_NAMES[l]).join(" or ");
+    return {
+      reason: `This is ${LAYOUT_NAMES[layout]}; this photo goes on ${wanted}.`,
+      markerIds,
+    };
+  }
+  if (found < ids.length) {
+    return {
+      reason: `Found ${found} of 4 corner markers. Keep all four corners in shot.`,
       markerIds,
     };
   }
 
   // Marker IDs name their corner, so ordering needs no geometry.
-  const cornersInImage = CORNER_IDS.map((id) => {
+  const cornersInImage = ids.map((id) => {
     const c = centroid(byId.get(id)!.corners);
     return { x: c.x / scale, y: c.y / scale };
   });
 
   let homography: Matrix3;
   try {
-    homography = getPerspectiveTransform(cornersInImage, sheetCanvasCorners(rig));
+    homography = getPerspectiveTransform(
+      cornersInImage,
+      layoutCanvasCorners(layout, rig),
+    );
   } catch {
     return {
       reason: "Markers are collinear — reshoot from straight above.",
@@ -110,10 +143,16 @@ export function detectSheet(
   return {
     homography,
     pxPerMm: PX_PER_MM,
+    layout,
     cornersInImage,
-    sheetVersion: sheetVersionFromIds(markerIds),
+    // The version markers are no longer printed, so this normally comes
+    // from configuration; a rig that does carry them still wins.
+    sheetVersion:
+      layout === "a3"
+        ? A3_SHEET_VERSION
+        : (sheetVersionFromIds(markerIds) ?? SHEET_VERSION),
     markerIds,
-    greyPatchRgb: sampleGreyPatch(source, homography, rig.blackSquareMm),
+    greyPatchRgb: sampleGreyPatch(source, homography, greyPatchCanvas(layout, rig)),
   };
 }
 
@@ -156,16 +195,13 @@ function downscaleForDetection(source: HTMLCanvasElement | OffscreenCanvas): {
 function sampleGreyPatch(
   source: HTMLCanvasElement | OffscreenCanvas,
   homography: Matrix3,
-  blackSquareMm: number | null,
+  patchInCanvas: Point,
 ): [number, number, number] | null {
   try {
     const inverse = invertHomography(homography);
     // Inset hard, so a little print misregistration cannot pull in paper.
     const inset = 8;
-    const centre = applyHomography(
-      inverse,
-      offsetMmToCanvas(GREY_PATCH.offsetXMm, GREY_PATCH.offsetYMm, blackSquareMm),
-    );
+    const centre = applyHomography(inverse, patchInCanvas);
     const x = Math.round(centre.x - inset / 2);
     const y = Math.round(centre.y - inset / 2);
     if (x < 0 || y < 0 || x + inset > source.width || y + inset > source.height) {

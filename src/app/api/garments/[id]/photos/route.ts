@@ -8,24 +8,24 @@ import {
   garment,
   job,
   photo,
+  photoViewEnum,
   type DetailKind,
   type PhotoView,
 } from "@/db/schema";
 import { parseCalibration } from "@/lib/capture";
+import { coverViewFor, shotFor } from "@/lib/capture-shots";
 import { newId } from "@/lib/ids";
 import { tileScaleFor, type Category } from "@/lib/measure/templates";
 import { contentHash, writeOriginal } from "@/lib/storage";
 
 export const runtime = "nodejs";
 
-const VIEWS: PhotoView[] = ["front", "back", "detail"];
-
 /**
  * Add another view to an existing garment — the back, usually, because back
  * rise cannot honestly be taken off a front photo.
  *
- * Each view is shot against the rig in its own right and carries its own
- * homography; nothing is shared but the garment.
+ * Each view on the markers carries its own homography; nothing is shared but
+ * the garment. A shoe's off-sheet views have none, and are cut out ungated.
  *
  * A detail is the exception: a close-up shot off the rig, with no markers,
  * no homography and no cutout. It is kept for what it shows, never measured,
@@ -44,7 +44,7 @@ export async function POST(
   }
 
   const view = String(form.get("view") ?? "back") as PhotoView;
-  if (!VIEWS.includes(view)) {
+  if (!photoViewEnum.enumValues.includes(view)) {
     return NextResponse.json({ error: "Unknown view" }, { status: 400 });
   }
 
@@ -56,21 +56,30 @@ export async function POST(
     }
   }
 
-  const calibration =
-    view === "detail" ? null : parseCalibration(form.get("calibration"));
-  if (view !== "detail" && !calibration) {
-    return NextResponse.json(
-      { error: "Missing or malformed homography" },
-      { status: 400 },
-    );
-  }
-
   const [owned] = await db
     .select({ id: garment.id, category: garment.category })
     .from(garment)
     .where(and(eq(garment.id, garmentId), eq(garment.ownerId, OWNER_ID)));
   if (!owned) {
     return NextResponse.json({ error: "No such garment" }, { status: 404 });
+  }
+  const category = owned.category as Category;
+
+  // A view this kind of item is not photographed in, such as a back on a
+  // shoe, would be a photo no screen shows.
+  const shot = view === "detail" ? null : shotFor(category, view);
+  if (view !== "detail" && !shot) {
+    return NextResponse.json({ error: "Unknown view" }, { status: 400 });
+  }
+
+  const calibration = shot?.markers
+    ? parseCalibration(form.get("calibration"))
+    : null;
+  if (shot?.markers && !calibration) {
+    return NextResponse.json(
+      { error: "Missing or malformed homography" },
+      { status: 400 },
+    );
   }
 
   const photoId = newId();
@@ -81,7 +90,7 @@ export async function POST(
     file.type || "image/jpeg",
   );
 
-  if (!calibration) {
+  if (view === "detail") {
     await db.insert(photo).values({
       id: photoId,
       ownerId: OWNER_ID,
@@ -112,17 +121,19 @@ export async function POST(
       garmentId,
       view,
       originalPath,
-      homography: {
-        m: calibration.m,
-        pxPerMm: calibration.pxPerMm,
-        source: calibration.source ?? "sheet",
-        cornersInImage: calibration.cornersInImage ?? null,
-      },
-      sheetVersion: Number(calibration.sheetVersion ?? 0),
-      greyPatchRgb: calibration.greyPatchRgb ?? null,
+      homography: calibration
+        ? {
+            m: calibration.m,
+            pxPerMm: calibration.pxPerMm,
+            source: calibration.source ?? "sheet",
+            cornersInImage: calibration.cornersInImage ?? null,
+          }
+        : null,
+      sheetVersion: Number(calibration?.sheetVersion ?? 0),
+      greyPatchRgb: calibration?.greyPatchRgb ?? null,
     });
 
-    if (view === "front") {
+    if (view === coverViewFor(category)) {
       await tx
         .update(garment)
         .set({ photoId, cutoutPath: null })
@@ -138,10 +149,10 @@ export async function POST(
         photoId,
         view,
         originalPath,
-        sheetQuad: calibration.cornersInImage ?? null,
-        homography: calibration.m,
-        pxPerMm: calibration.pxPerMm,
-        tileScale: tileScaleFor(owned.category as Category),
+        sheetQuad: calibration?.cornersInImage ?? null,
+        homography: calibration?.m ?? null,
+        pxPerMm: calibration?.pxPerMm ?? null,
+        tileScale: tileScaleFor(category),
       },
       contentHash: contentHash("cutout", originalPath),
     });

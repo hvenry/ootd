@@ -56,8 +56,8 @@
 
 @media (min-width: 1024px) {
   :root {
-    /* The side columns start lower than the bar does. */
-    --header-h: 86px;
+    /* The side columns start a little lower than the bar does. */
+    --header-h: 64px;
   }
 }
 

@@ -11,6 +11,7 @@ import { PhotoStrip } from "@/components/photo-strip";
 import { PhotoZoom } from "@/components/photo-zoom";
 import { useActivity } from "@/components/activity";
 import { deleteDetailPhoto } from "@/app/actions";
+import { viewLabel } from "@/lib/capture-shots";
 import type { KnownBrand } from "@/lib/search/brands";
 import { useDisplayUnit } from "@/lib/units/preference";
 import { declaredHex } from "@/lib/colour/declared";
@@ -37,11 +38,10 @@ type ItemPhoto = {
  * The pager's word for each photo. Two details of one kind are numbered,
  * since "Fabric Fabric" under the strip says nothing about which is which.
  */
-function photoLabels(photos: ItemPhoto[]): string[] {
+function photoLabels(photos: ItemPhoto[], category: Category): string[] {
   const seen = new Map<string, number>();
   return photos.map((p) => {
-    if (p.view === "front") return "Front";
-    if (p.view === "back") return "Back";
+    if (p.view !== "detail") return viewLabel(category, p.view);
     const base = DETAIL_KIND_LABELS[p.detailKind ?? "other"];
     const total = photos.filter((q) => q.detailKind === p.detailKind).length;
     const n = (seen.get(base) ?? 0) + 1;
@@ -84,7 +84,7 @@ export function ItemScreen({
   const { toast } = useActivity();
   const fromCloset = useFromCloset(garment.id);
   const [index, setIndex] = useState(0);
-  const labels = photoLabels(photos);
+  const labels = photoLabels(photos, garment.category);
   const shown = photos[Math.min(index, photos.length - 1)];
   const [removing, setRemoving] = useState(false);
   /** The photo the full-screen view opened on, or null when it is shut. */
@@ -173,9 +173,13 @@ export function ItemScreen({
     </div>
   );
 
+  // Shoes and belts have no template yet (their measuring is a later step),
+  // so their page has no numbers and nothing to measure.
+  const measurable = dimensions.length > 0;
+
   /* The numbers live on the diagram, not in a list: a figure beside the
      line it measures is checkable at a glance, and a list is not. */
-  const info = (
+  const info = !measurable ? null : (
     <div>
       <div className="flex items-center gap-3">
         <p className="label">Measurements</p>
@@ -215,7 +219,18 @@ export function ItemScreen({
 
   /* Measure takes the filled slot: it is the thing to do with an item, as
      add-to-bag is on a shop. Edit sits beside it as text. */
-  const actions = (
+  const actions = !measurable ? (
+    <div>
+      <button
+        type="button"
+        onClick={() => setDetails(true)}
+        className="label link-text"
+      >
+        Edit details
+      </button>
+      <p className="text-fg3 mt-3">Measuring comes later for these.</p>
+    </div>
+  ) : (
     <div>
       <div className="action-row">
         <Link

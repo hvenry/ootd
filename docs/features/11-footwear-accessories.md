@@ -1,8 +1,15 @@
 # Footwear and accessories
 
-Not built yet. Shoes and belts are needed before an outfit image is complete,
-and they go on the same mannequin as everything else
-(`08-standardize.md`).
+Capture is built: the categories, the A3 sheet version 2, the shot lists and
+off-sheet cutouts. Measuring (the templates and the pin line) is not yet.
+Shoes and belts are needed before an outfit image is complete, and they go on
+the same mannequin as everything else (`08-standardize.md`).
+
+`lib/capture-shots.ts` holds each kind's shots: which views, in what order,
+how to take each, which markers it needs, and which one is the cover the
+closet shows. Capture, Add to closet, the unfinished list and the item page
+all read it. Until their templates exist, shoes and belts stay out of the
+measure queue and their item page offers no Measure.
 
 ## Categories
 
@@ -11,11 +18,16 @@ differently. Everything finer goes in `subcategory`, as for clothes.
 
 - **Footwear:** `shoe` (sneakers, loafers, derbies) and `boot`, which differ
   for weather.
-- **Accessories:** `belt` first. `hat` exists; `bag`, `scarf` and `gloves`
-  follow when needed.
+- **Accessories:** `belt` first. `hat` exists but is not offered; `bag`,
+  `scarf` and `gloves` follow when needed.
 
-The group (top, bottom, footwear, accessory) is derived from the category,
-never stored.
+Both sit under one add-form group, "Footwear & Accessories".
+
+An item's category can change only within its kind: a shirt can become a
+jacket, but not a shoe, whose photographs it does not have.
+
+The group (top, bottom, outerwear, accessories) is derived from the
+category, never stored.
 
 ## Shoes
 
@@ -33,7 +45,9 @@ rig's spans and every shoe would be wildly out. With its own IDs, capture
 knows which layout is in frame and picks the spans itself: the A3's are fixed
 by the print and checked once against the black square, the rig's come from
 Settings. Nothing is switched by hand. Version 2 also carries the grey and
-white patches, which version 1 cannot fit.
+white patches, between the top two markers, which version 1 could not fit.
+Its black square should be 32 mm; a different reading goes in Settings as the
+A3 black square, and the sheet's spans scale with it.
 
 ### Scale is approximate
 
@@ -63,6 +77,9 @@ guessing a hidden side.
 | Back, about 45° down | none | Heel counter, pull tab, the lining at the collar |
 | Close-ups, optional | none | Size label, tread, hardware |
 
+The closet shows the outer side. The top-down shot's tile is drawn at a
+shoe's own shared scale, a 300 × 400 mm canvas.
+
 The sides are shot near floor level rather than angled down, because the
 profile is what the model most needs for shape and heel height.
 
@@ -80,7 +97,8 @@ inside the rig flat on the paper plane, where it measures to the millimetre.
 A long strip of pages would mean re-taping and re-entering the spans for
 every belt.
 
-- **Shots:** the belt in a U on the rig, and a buckle close-up.
+- **Shots:** the belt in a U on the rig, and a buckle close-up (the close-ups
+  step opens on Hardware for a belt). Its tile uses a 700 × 933 mm canvas.
 - **Measured:** buckle to the hole in use, hole spacing, and width. Buckle to
   hole follows the curve, so the measure screen gains a **pin line**: a chain
   of pins whose segments add up.
@@ -88,6 +106,8 @@ every belt.
 ## Off-rig cutouts
 
 The worker gates a cutout to the rig, which picks the garment out of the
-mask. The shoe's angled shots have no markers, so they are cut out ungated:
-the largest central piece, which suits one object on a plain floor. They are
-references for the model and are never measured.
+mask. The shoe's side and angled shots have no markers, so the middle of the
+frame (inside a 20% margin) stands in for the rig: the piece with the most of
+itself there is kept, which drops the other shoe or a chair leg at the edge.
+Their tiles are fitted, not metric. They are references for the model and are
+never measured.

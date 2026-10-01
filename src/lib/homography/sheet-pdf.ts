@@ -2,6 +2,11 @@ import { PDFDocument, StandardFonts, rgb, type PDFPage } from "pdf-lib";
 
 import { AR } from "./aruco-lib";
 import {
+  A3_CORNER_IDS,
+  A3_GREY_PATCH,
+  A3_SHEET_VERSION,
+  A3_WHITE_PATCH,
+  A3_BLACK_SQUARE_MM,
   CORNER_IDS,
   DICTIONARY_NAME,
   GREY_PATCH,
@@ -60,12 +65,13 @@ const MEASUREMENTS_FROM: Record<number, string[]> = {
 };
 
 /**
- * The single A3 sheet: four markers at the corners, at the exact offsets the
- * on-screen preview and the detector use. Small items only.
+ * The single A3 sheet, for shoes: four markers at the corners with IDs of
+ * their own (4 to 7), at the exact offsets the on-screen preview and the
+ * detector use, and the colour patches between the top two.
  */
 export async function buildA3SheetPdf(): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`OOTD calibration sheet v${SHEET_VERSION} (A3)`);
+  doc.setTitle(`OOTD shoe sheet v${A3_SHEET_VERSION} (A3)`);
   const regular = await doc.embedFont(StandardFonts.Helvetica);
   const dictionary = new AR.Dictionary(DICTIONARY_NAME);
   const page = doc.addPage([mm(SHEET_WIDTH_MM), mm(SHEET_HEIGHT_MM)]);
@@ -97,19 +103,57 @@ export async function buildA3SheetPdf(): Promise<Uint8Array> {
     [SHEET_MARGIN_MM + half, SHEET_HEIGHT_MM - SHEET_MARGIN_MM - half],
   ];
   corners.forEach(([cx, cy], index) => {
-    drawMarker(page, dictionary, CORNER_IDS[index], cx, cy, MARKER_SIZE_MM, box);
+    drawMarker(page, dictionary, A3_CORNER_IDS[index], cx, cy, MARKER_SIZE_MM, box);
   });
 
-  const sizeMm = 3.2;
-  page.drawText(
-    `OOTD V${SHEET_VERSION}  -  ${DICTIONARY_NAME}  -  A3  -  PRINT AT 100%  -  MARKERS ${MARKER_SIZE_MM} MM`,
-    {
-      x: mm(SHEET_MARGIN_MM + MARKER_SIZE_MM + 8),
-      y: y(SHEET_MARGIN_MM + sizeMm * 0.8),
+  const text = (s: string, xMm: number, topMm: number, sizeMm: number) =>
+    page.drawText(s, {
+      x: mm(xMm),
+      y: y(topMm + sizeMm * 0.8),
       size: mm(sizeMm),
       font: regular,
       color: BLACK,
-    },
+    });
+
+  // Offsets are from the top-left marker's centre, as the detector reads them.
+  const [originX, originY] = corners[0];
+  for (const [patch, label] of [
+    [A3_GREY_PATCH, "NEUTRAL"],
+    [A3_WHITE_PATCH, "WHITE"],
+  ] as const) {
+    const left = originX + patch.offsetXMm - patch.sizeMm / 2;
+    const top = originY + patch.offsetYMm - patch.sizeMm / 2;
+    const [r, g, b] = hexToRgb(patch.hex);
+    box(left, top, patch.sizeMm, patch.sizeMm, rgb(r, g, b));
+    page.drawRectangle({
+      x: mm(left),
+      y: y(top + patch.sizeMm),
+      width: mm(patch.sizeMm),
+      height: mm(patch.sizeMm),
+      borderColor: BLACK,
+      borderWidth: mm(0.2),
+    });
+    text(`${label} ${patch.hex}`, left, top + patch.sizeMm + 1.5, 2.6);
+  }
+
+  text(
+    `OOTD SHOE SHEET V${A3_SHEET_VERSION}  -  ${DICTIONARY_NAME}  -  IDS 4-7  -  A3 AT 100%`,
+    SHEET_MARGIN_MM + MARKER_SIZE_MM + 8,
+    SHEET_MARGIN_MM - 9,
+    2.8,
+  );
+  const bottom = SHEET_HEIGHT_MM - SHEET_MARGIN_MM - 9;
+  text(
+    "ONE SHOE, LENGTHWISE DOWN THE MIDDLE, TOE TO THE TOP",
+    SHEET_MARGIN_MM + MARKER_SIZE_MM + 8,
+    bottom,
+    2.8,
+  );
+  text(
+    `BLACK SQUARE MUST MEASURE ${A3_BLACK_SQUARE_MM} MM`,
+    SHEET_MARGIN_MM + MARKER_SIZE_MM + 8,
+    bottom + 4.5,
+    2.8,
   );
 
   return doc.save();

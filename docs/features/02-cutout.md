@@ -66,8 +66,11 @@ new name: bump `TILE_SUFFIX` or `LARGE_SUFFIX` in the worker and
 
 ## Off the rig
 
-Planned for the shoe's angled shots, which have no markers: an ungated cut
-that keeps the largest central piece. See `11-footwear-accessories.md`.
+The shoe's side and angled shots have no markers, so the middle of the frame
+stands in for the rig when choosing pieces, and the tile is fitted rather than
+metric. See `11-footwear-accessories.md`. The grid picture follows the
+garment's cover photo (`garment.photo_id`), which for a shoe is its outer
+side.
 
 ## Never
 

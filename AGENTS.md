@@ -100,6 +100,11 @@ docs/                  plan, architecture, model, design, decisions, features
 - The rig spans live in the `rig` table, saved from Settings and read per
   request (`src/lib/rig.ts`). `NEXT_PUBLIC_SHEET_*` is only the fallback until
   one is saved, and that fallback is baked in at build time.
+- Which photos an item needs is `src/lib/capture-shots.ts`, per kind
+  (clothes, footwear, belts). Never test `view === "front"` for "the grid
+  picture": that is the garment's cover, `garment.photo_id`.
+- The A3 shoe sheet prints IDs 4 to 7, the rig 0 to 3. Detection picks the
+  layout, and so the spans, from the IDs in frame.
 - The app and worker containers both run as UID 1000 and share `./storage`.
   On Linux that ownership is enforced.
 

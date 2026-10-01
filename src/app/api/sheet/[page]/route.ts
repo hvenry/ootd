@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { buildA3SheetPdf, buildSheetPdf } from "@/lib/homography/sheet-pdf";
-import { CORNER_IDS, isPaperSize, SHEET_VERSION } from "@/lib/homography/sheet";
+import {
+  A3_SHEET_VERSION,
+  CORNER_IDS,
+  isPaperSize,
+  SHEET_VERSION,
+} from "@/lib/homography/sheet";
 
 export const runtime = "nodejs";
 
@@ -28,7 +33,7 @@ export async function GET(
     return new NextResponse(a3 as unknown as BodyInit, {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="ootd-sheet-v${SHEET_VERSION}-a3.pdf"`,
+        "Content-Disposition": `attachment; filename="ootd-shoe-sheet-v${A3_SHEET_VERSION}-a3.pdf"`,
         "Content-Length": String(a3.length),
       },
     });

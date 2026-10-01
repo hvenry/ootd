@@ -31,6 +31,12 @@ const FIELDS: { key: Key; label: string; hint: string; optional?: boolean }[] = 
     hint: "Meant to be 88. Blank if it is",
     optional: true,
   },
+  {
+    key: "a3BlackSquareMm",
+    label: "A3 black square",
+    hint: "The shoe sheet's. Meant to be 32",
+    optional: true,
+  },
 ];
 
 type Values = Record<Key, string>;
@@ -46,6 +52,7 @@ function valuesFrom(rig: Rig): Values {
     diagMm: mm(rig.quad.diag),
     diag2Mm: mm(rig.quad.diag2),
     blackSquareMm: mm(rig.blackSquareMm),
+    a3BlackSquareMm: mm(rig.a3BlackSquareMm),
   };
 }
 

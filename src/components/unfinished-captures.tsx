@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { deleteGarment, finishCapture } from "@/app/actions";
 import { useActivity } from "@/components/activity";
+import { missingViews, viewLabel } from "@/lib/capture-shots";
 import { CATEGORY_LABELS, type Category } from "@/lib/measure/templates";
 
 export type UnfinishedCapture = {
@@ -54,10 +55,11 @@ export function UnfinishedCaptures({ items }: { items: UnfinishedCapture[] }) {
 }
 
 /** What still has to happen before this is a garment. */
-function missing(views: string[]): string {
-  const absent = ["front", "back"].filter((v) => !views.includes(v));
-  if (absent.length === 0) return "both photos, never added";
-  return `no ${absent.join(" or ")} photo`;
+function missing(item: UnfinishedCapture): string {
+  const absent = missingViews(item.category, item.views);
+  if (absent.length === 0) return "every photo, never added";
+  const names = absent.map((v) => viewLabel(item.category, v).toLowerCase());
+  return `no ${names.join(" or ")} photo`;
 }
 
 function Row({ item }: { item: UnfinishedCapture }) {
@@ -65,7 +67,7 @@ function Row({ item }: { item: UnfinishedCapture }) {
   const { toast } = useActivity();
   const [confirming, setConfirming] = useState(false);
   const [pending, setPending] = useState(false);
-  const complete = ["front", "back"].every((v) => item.views.includes(v));
+  const complete = missingViews(item.category, item.views).length === 0;
 
   // Both faces are in and the capture was left before Add was pressed.
   async function onAdd() {
@@ -109,7 +111,7 @@ function Row({ item }: { item: UnfinishedCapture }) {
           <p className="label">{item.brand ?? "Unbranded"}</p>
           <p className="text-fg2 mt-0.5 text-11">
             {item.name ?? CATEGORY_LABELS[item.category]} ·{" "}
-            {missing(item.views)}
+            {missing(item)}
           </p>
         </div>
 
@@ -124,8 +126,8 @@ function Row({ item }: { item: UnfinishedCapture }) {
               Add
             </button>
           ) : (
-            // The measure route sends a capture back for its missing face.
-            <Link href={`/measure/${item.id}`} className="chip">
+            // The item page sends a capture back for its first missing shot.
+            <Link href={`/item/${item.id}`} className="chip">
               Finish
             </Link>
           )}

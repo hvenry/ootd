@@ -211,6 +211,13 @@
       "when": 1790522153272,
       "tag": "0029_twelve_colours",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790809254608,
+      "tag": "0030_footwear",
+      "breakpoints": true
     }
   ]
 }

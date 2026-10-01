@@ -60,6 +60,8 @@ export const categoryEnum = pgEnum("category", [
   "shorts",
   "shoe",
   "hat",
+  "boot",
+  "belt",
 ]);
 
 export const stretchEnum = pgEnum("stretch", ["none", "low", "high"]);
@@ -72,6 +74,7 @@ export const layerSlotEnum = pgEnum("layer_slot", [
   "bottom",
   "footwear",
   "headwear",
+  "accessory",
 ]);
 
 export const measurementKeyEnum = pgEnum("measurement_key", [
@@ -119,8 +122,26 @@ export const measurementSourceEnum = pgEnum("measurement_source", [
  * A garment is photographed more than once because some dimensions only
  * exist on one side: back rise is a back measurement, and taking it off a
  * front photo is wrong in a way nothing would flag.
+ *
+ * A shoe is a solid, not a flat thing, so it has its own set: `top` down on
+ * the A3 sheet, the one with a scale, then `outer` and `inner` sides at
+ * floor level and `toe` and `heel` from above, off the sheet, as references
+ * for the image model. Which views an item needs is `shotsFor` in
+ * `lib/capture-shots`.
  */
-export const photoViewEnum = pgEnum("photo_view", ["front", "back", "detail"]);
+export const photoViewEnum = pgEnum("photo_view", [
+  "front",
+  "back",
+  "detail",
+  "top",
+  "outer",
+  "inner",
+  "toe",
+  "heel",
+]);
+
+/** Views shot on markers, which therefore carry a homography. */
+export const MARKED_VIEWS = ["front", "back", "top"] as const;
 
 /**
  * What a detail photo is a close-up of. Only detail photos carry one.
@@ -176,9 +197,9 @@ export const photo = pgTable(
     /**
      * { m: number[9] (row-major 3x3, image px -> canvas px), pxPerMm: number }
      *
-     * Null only on a detail photo. A close-up is shot too near for the
-     * markers to be in frame, and a detail with a fabricated scale would be
-     * a measuring surface that measures nothing correctly.
+     * Null on a detail and on a shoe's off-sheet views. A close-up is shot
+     * too near for the markers to be in frame, and a photo with a fabricated
+     * scale would be a measuring surface that measures nothing correctly.
      */
     homography: jsonb(),
     /** Background-removed PNG for *this* view. */
@@ -207,9 +228,11 @@ export const photo = pgTable(
     uniqueIndex("photo_garment_view")
       .on(t.garmentId, t.view)
       .where(sql`${t.view} <> 'detail'`),
+    // Compared as text: a migration cannot use an enum value it adds in the
+    // same transaction, and these arrived with the shoe views.
     check(
       "photo_measurable_view",
-      sql`${t.view} = 'detail' OR ${t.homography} IS NOT NULL`,
+      sql`${t.view}::text NOT IN ('front', 'back', 'top') OR ${t.homography} IS NOT NULL`,
     ),
     check(
       "photo_detail_kind",
@@ -356,6 +379,11 @@ export const rig = pgTable(
     diag2Mm: integer(),
     /** What the printed black square measures. Null assumes a perfect print. */
     blackSquareMm: integer(),
+    /**
+     * The same check for the A3 sheet, whose spans are fixed by the print:
+     * what its black square measures, null for a perfect print.
+     */
+    a3BlackSquareMm: integer(),
     updatedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

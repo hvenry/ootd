@@ -31,15 +31,20 @@ export function DetailShots({
   doneLabel,
   onDone,
   secondary,
+  hint,
+  initialKind = "label",
 }: {
   garmentId: string;
   doneLabel: string;
   onDone: () => void;
   /** A second way out beside the filled button, e.g. "Measure now". */
   secondary?: { label: string; onClick: () => void };
+  /** The close-up this kind of item most needs, said under the heading. */
+  hint?: string | null;
+  initialKind?: DetailKind;
 }) {
   const { toast } = useActivity();
-  const [kind, setKind] = useState<DetailKind>("label");
+  const [kind, setKind] = useState<DetailKind>(initialKind);
   const [shots, setShots] = useState<Shot[]>([]);
   const [uploading, setUploading] = useState(false);
   const [note, setNote] = useState<string | null>(null);
@@ -99,6 +104,7 @@ export function DetailShots({
           Optional. Close enough to read: the care label, the weave, a print.
           No markers needed.
         </p>
+        {hint ? <p className="text-fg mt-1 text-12">{hint}</p> : null}
       </div>
 
       <div className="mb-4 flex flex-wrap justify-center gap-x-5 gap-y-2">

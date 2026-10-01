@@ -20,9 +20,10 @@ import {
   type Group,
   type MeasurementKey,
 } from "@/lib/measure/templates";
+import { shotKindFor } from "@/lib/capture-shots";
 import type { KnownBrand } from "@/lib/search/brands";
 
-const GROUPS: Group[] = ["top", "bottom", "outerwear"];
+const GROUPS: Group[] = ["top", "bottom", "outerwear", "accessories"];
 
 /**
  * Correct what was typed at capture. Category is editable too, and picked
@@ -98,7 +99,17 @@ export function GarmentDetails({
     draftColour !== declaredColour ||
     draftCategory !== category;
 
-  const offered = group ? categoriesIn(group) : [];
+  // Only what is photographed the same way: a shirt can become a jacket, but
+  // not a shoe, whose five photographs it does not have, and a shoe can
+  // become a boot but not the belt beside it in the same group.
+  const offered = group
+    ? categoriesIn(group).filter(
+        (c) => shotKindFor(c) === shotKindFor(category),
+      )
+    : [];
+  const groups = GROUPS.filter((g) =>
+    categoriesIn(g).some((c) => shotKindFor(c) === shotKindFor(category)),
+  );
 
   const allowed = new Set(templateFor(draftCategory).map((d) => d.key));
   const wouldDrop =
@@ -189,7 +200,7 @@ export function GarmentDetails({
             {/* The add form's group bar, run to the box's edges as the add
               form runs it to the viewport's. */}
             <div className="split-bar -mx-5 sm:-mx-8">
-              {GROUPS.map((g) => (
+              {groups.map((g) => (
                 <button
                   key={g}
                   type="button"

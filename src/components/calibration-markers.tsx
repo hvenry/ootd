@@ -3,6 +3,11 @@ import Link from "next/link";
 import { SectionHead } from "@/components/section-head";
 import { AR } from "@/lib/homography/aruco-lib";
 import {
+  A3_BLACK_SQUARE_MM,
+  A3_CORNER_IDS,
+  A3_GREY_PATCH,
+  A3_SHEET_VERSION,
+  A3_WHITE_PATCH,
   CORNER_IDS,
   DICTIONARY_NAME,
   GREY_PATCH,
@@ -99,7 +104,7 @@ export function CalibrationMarkers({
             className="chip"
             aria-pressed={!tiled}
           >
-            Single A3 · small items
+            Single A3 · shoes
           </Link>
         </div>
 
@@ -509,15 +514,32 @@ function A3Instructions() {
           A3, printed at 100% scale, with fit to page off.
         </p>
       </div>
-      <p className="text-fg2 max-w-lg">
-        One A3 sheet, markers {MARKER_SIZE_MM}&nbsp;mm at the corners. Only
-        useful for something that fits inside{" "}
-        {SHEET_WIDTH_MM - 2 * SHEET_MARGIN_MM} ×{" "}
-        {SHEET_HEIGHT_MM - 2 * SHEET_MARGIN_MM}&nbsp;mm without covering a
-        marker, such as a cap or a folded accessory. A tee is about 530&nbsp;mm
-        across and hides all four. Print at 100%, measure the marker centres,
-        and enter them in the rig above.
+      <p className="text-fg2 mb-5 max-w-lg">
+        The shoe sheet. One A3 page, {MARKER_SIZE_MM}&nbsp;mm markers at the
+        corners with IDs of their own, 4 to 7, so capture knows it is this
+        sheet and not the rig. Its spans are fixed by the print, so there is
+        nothing to tape or measure.
       </p>
+      <ol className="text-fg2 max-w-lg list-decimal space-y-3 pl-5">
+        <li>
+          Print it at <strong className="text-fg">100% scale</strong>. The
+          black square should measure{" "}
+          <strong className="text-fg">{A3_BLACK_SQUARE_MM}&nbsp;mm</strong> a
+          side; if it does not, enter what it measures as the A3 black square
+          in the rig above.
+        </li>
+        <li>
+          Stand one shoe lengthwise down the middle, toe to the top. The strip
+          between the markers is{" "}
+          {SHEET_WIDTH_MM - 2 * (SHEET_MARGIN_MM + MARKER_SIZE_MM)}&nbsp;mm
+          wide and the full {SHEET_HEIGHT_MM}&nbsp;mm long.
+        </li>
+        <li>
+          Shoot straight down from as high as you can, on the 2× lens if the
+          phone has one. A shoe stands above the paper, and the further away
+          the camera, the less that height inflates it.
+        </li>
+      </ol>
     </div>
   );
 }
@@ -648,23 +670,27 @@ function A3Sheet({
   dictionary: InstanceType<typeof AR.Dictionary>;
 }) {
   const corners = [
-    { id: CORNER_IDS[0], xMm: SHEET_MARGIN_MM, yMm: SHEET_MARGIN_MM },
+    { id: A3_CORNER_IDS[0], xMm: SHEET_MARGIN_MM, yMm: SHEET_MARGIN_MM },
     {
-      id: CORNER_IDS[1],
+      id: A3_CORNER_IDS[1],
       xMm: SHEET_WIDTH_MM - SHEET_MARGIN_MM - MARKER_SIZE_MM,
       yMm: SHEET_MARGIN_MM,
     },
     {
-      id: CORNER_IDS[2],
+      id: A3_CORNER_IDS[2],
       xMm: SHEET_WIDTH_MM - SHEET_MARGIN_MM - MARKER_SIZE_MM,
       yMm: SHEET_HEIGHT_MM - SHEET_MARGIN_MM - MARKER_SIZE_MM,
     },
     {
-      id: CORNER_IDS[3],
+      id: A3_CORNER_IDS[3],
       xMm: SHEET_MARGIN_MM,
       yMm: SHEET_HEIGHT_MM - SHEET_MARGIN_MM - MARKER_SIZE_MM,
     },
   ];
+  // Patches are placed from the top-left marker's centre, as detected.
+  const originX = SHEET_MARGIN_MM + MARKER_SIZE_MM / 2;
+  const originY = SHEET_MARGIN_MM + MARKER_SIZE_MM / 2;
+  const captionX = SHEET_MARGIN_MM + MARKER_SIZE_MM + 8;
 
   return (
     <div className="sheet">
@@ -682,16 +708,42 @@ function A3Sheet({
         />
       ))}
 
-      {/* No colour patches here. They are located by a fixed offset from the
-          top-left marker centre, and on A3 that offset falls off the paper.
-          Printing them anywhere else means the app samples the wrong pixels.
-          The tiled layout carries them. */}
+      {[
+        { patch: A3_GREY_PATCH, label: "NEUTRAL" },
+        { patch: A3_WHITE_PATCH, label: "WHITE" },
+      ].map(({ patch, label }) => (
+        <div
+          key={label}
+          className="patch"
+          style={{
+            left: `${originX + patch.offsetXMm - patch.sizeMm / 2}mm`,
+            top: `${originY + patch.offsetYMm - patch.sizeMm / 2}mm`,
+            width: `${patch.sizeMm}mm`,
+            height: `${patch.sizeMm}mm`,
+            background: patch.hex,
+          }}
+        >
+          <span>
+            {label} {patch.hex}
+          </span>
+        </div>
+      ))}
+
       <div
         className="cap"
-        style={{ left: "15mm", top: `${SHEET_HEIGHT_MM - 10}mm` }}
+        style={{ left: `${captionX}mm`, top: `${SHEET_MARGIN_MM - 9}mm` }}
       >
-        OOTD V{SHEET_VERSION} · {DICTIONARY_NAME} · SMALL ITEMS ONLY · NO GREY
-        PATCH · PRINT AT 100%
+        OOTD SHOE SHEET V{A3_SHEET_VERSION} · {DICTIONARY_NAME} · IDS 4–7
+      </div>
+      <div
+        className="cap"
+        style={{
+          left: `${captionX}mm`,
+          top: `${SHEET_HEIGHT_MM - SHEET_MARGIN_MM - 9}mm`,
+        }}
+      >
+        ONE SHOE, LENGTHWISE DOWN THE MIDDLE, TOE TO THE TOP · BLACK SQUARE{" "}
+        {A3_BLACK_SQUARE_MM} MM
       </div>
     </div>
   );
