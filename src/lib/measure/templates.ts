@@ -588,7 +588,7 @@ const SILHOUETTE_BY_CATEGORY: Record<Category, Silhouette | null> = {
   sweatpants: "bottom",
   shorts: "shorts",
   // Not flat garments. Shoes and belts get their own templates later
-  // (docs/features/11-footwear-accessories.md); a hat is sized, not measured.
+  // (docs/specs/shoe-belt-measure.md); a hat is sized, not measured.
   shoe: null,
   hat: null,
   boot: null,

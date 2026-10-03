@@ -62,9 +62,9 @@ services:
     image: ootd-worker:${OOTD_TAG:-dev}
     build:
       context: ./worker
-      # BiRefNet, so "Bad cut? Try BiRefNet" has something to run. Docker on
-      # a Mac has no GPU, so it runs on the CPU: seconds a garment, not
-      # milliseconds, which is fine for a re-cut. Weights (~450MB) download on
+      # BiRefNet, the default cutout provider. Docker on a Mac has no GPU, so
+      # it runs on the CPU: about 35 s a garment rather than under a second,
+      # which is fine in a background job. Weights (~425MB) download on
       # the first BiRefNet job and are kept in the hfcache volume.
       args:
         EXTRAS: "[local]"

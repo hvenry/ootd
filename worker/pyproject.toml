@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# BiRefNet. Pulls ~450MB of weights from HuggingFace on the first cutout job:
+# BiRefNet. Pulls ~425MB of weights from HuggingFace on the first cutout job:
 # free, no token, no gate. A GPU is optional — CPU is slow but perfectly fine
 # for a closet photographed one garment at a time.
 local = [

@@ -1,7 +1,7 @@
 # Worker
 
 Polls the Postgres `job` table with `FOR UPDATE SKIP LOCKED` and runs cutouts.
-Docker Compose normally starts it; see `docs/SETUP.md`.
+Docker Compose normally starts it; see `docs/setup.md`.
 
 | `CUTOUT_PROVIDER` | What | Cost |
 |---|---|---|
@@ -14,7 +14,7 @@ Otherwise the default runs. Each provider is built once per process.
 
 Every cut records its path, provider and garment bounds on the photo, and
 writes a 3:4 tile beside it, drawn at a scale shared by every top or every
-bottom (`docs/features/02-cutout.md`). With a GPU (`docker-compose.gpu.yml`),
+bottom (`docs/media-storage.md`). With a GPU (`docker-compose.gpu.yml`),
 BiRefNet runs on CUDA in half precision. `CUTOUT_DEVICE=cuda` (set by the GPU
 overlay) makes the GPU required rather than preferred, and
 `MODEL_KEEP_ALIVE_SECONDS` unloads the model after that long idle, for a GPU

@@ -3,7 +3,7 @@
 /* ---------------------------------------------------------------- tokens
    The entire palette. There is no accent and no brand colour: the interface
    is a measuring instrument, so colour enters only through the clothes.
-   See docs/DESIGN-SYSTEM.md, which is binding. */
+   See docs/design-system.md, which is binding. */
 
 :root {
   --bg: #ffffff;
@@ -16,7 +16,7 @@
   --rule: #ebebeb;
   /* The one exception to "no colour in the chrome", and it earns it: the
      only irreversible control in the app. It appears on exactly one button
-     and never as a fill. See docs/DESIGN-SYSTEM.md. */
+     and never as a fill. See docs/design-system.md. */
   --danger: #c0271b;
 
   /* One distance from every edge of the viewport. The header, the side menus

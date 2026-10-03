@@ -3,7 +3,7 @@ The worker: a FastAPI app for health and diagnostics, plus a thread polling
 the Postgres job table.
 
 One kind of job so far, `cutout`: background removal. Standardisation is
-next; see docs/features/08-standardize.md.
+next; see docs/specs/standardize.md.
 """
 
 from __future__ import annotations

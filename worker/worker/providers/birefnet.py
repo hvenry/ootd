@@ -8,7 +8,7 @@ entirely workable for one garment at a time.
 
 Never substitute rembg's default session: that is `bria-rmbg`, which is
 CC BY-NC, and this repo is MIT and may host a paid service. See
-docs/DECISIONS.md for the full forbidden list.
+docs/model-licensing.md for the full forbidden list.
 """
 
 from __future__ import annotations

@@ -6,7 +6,7 @@ import { invertHomography, type Matrix3 } from "./solve";
  * This is a *preview* and nothing else. Measurements are taken by pushing tap
  * coordinates through the homography, never by measuring these pixels: warping
  * and then measuring the warp resamples twice and spends precision for a
- * picture. See CLAUDE.md.
+ * picture. See docs/rig-and-scale.md.
  */
 const PREVIEW_MAX_DIMENSION = 720;
 

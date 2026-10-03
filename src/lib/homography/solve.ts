@@ -5,7 +5,7 @@
  * need no camera intrinsics, which is why this is a homography and not
  * single-marker pose estimation: pose from one marker is noisy out of plane
  * and there is no reason to accept that noise when the sheet gives four points.
- * See docs/features/01-capture.md.
+ * See docs/rig-and-scale.md.
  */
 
 export type Point = { x: number; y: number };

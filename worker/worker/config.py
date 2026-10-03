@@ -53,8 +53,10 @@ def _storage_root() -> Path:
 STORAGE_ROOT = _storage_root()
 
 # chroma | local | replicate. See worker/providers/__init__.py.
-# chroma is the default because it needs no model and no download.
-CUTOUT_PROVIDER = os.environ.get("CUTOUT_PROVIDER", "chroma")
+# Matches the app's default (src/lib/providers/cutout.ts), which labels a
+# queued job before the worker records its provider. chroma is opt-in for a
+# worker installed without the `local` extras.
+CUTOUT_PROVIDER = os.environ.get("CUTOUT_PROVIDER", "local")
 
 # auto | cuda | mps | cpu. auto takes the best available; naming one makes a
 # missing device an error instead of a silent fall back to the CPU.

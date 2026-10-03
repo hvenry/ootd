@@ -8,7 +8,7 @@ import type { Category, PhotoView } from "@/lib/measure/templates";
  * null for a shot taken off the markers entirely, which has no scale and is
  * never measured. Off-marker shots of a shoe are for the image model, which
  * mirrors one fully seen shoe into a pair rather than guessing a hidden side
- * (docs/features/11-footwear-accessories.md).
+ * (docs/footwear-accessories.md).
  */
 export type Shot = {
   view: PhotoView;

@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Self-hosted in a container; see docs/ARCHITECTURE.md.
+  // Self-hosted in a container; see docs/architecture.md.
   output: "standalone",
 
   /**

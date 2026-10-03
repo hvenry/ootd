@@ -17,9 +17,9 @@ import {
 import { sql } from "drizzle-orm";
 
 /**
- * Schema: garment, measurement, photo, job, rig. Planned tables: docs/DATA-MODEL.md.
+ * Schema: garment, measurement, photo, job, rig. Planned tables: docs/data-model.md.
  *
- * Two rules from CLAUDE.md are enforced structurally here rather than by
+ * Two rules from AGENTS.md are enforced structurally here rather than by
  * convention, because violating either produces wrong numbers that nobody
  * notices:
  *   - every length is `integer` millimetres, never numeric, never inches;
