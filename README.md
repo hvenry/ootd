@@ -2,7 +2,7 @@
 
 A self-hosted wardrobe app where every garment is photographed on a marker rig, cut out, and measured to the millimetre.
 
-![The closet grid on desktop, and the measure screen on a phone with six pins on a pair of trousers](docs/images/closet-and-measure.png)
+![The closet grid, filtered by category, brand and colour](docs/images/closet.png)
 
 ## Features
 
