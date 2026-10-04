@@ -28,8 +28,7 @@ Full setup, dev mode and backups: [docs/setup.md](docs/setup.md).
 - [Rig and scale](docs/rig-and-scale.md) - how a phone photo becomes millimetres
 - [Measure](docs/measure.md) - pins, templates and the measure screen
 - [Model licensing](docs/model-licensing.md) - why only commercially licensed models are used
-
-`AGENTS.md` indexes every doc; [docs/specs/roadmap.md](docs/specs/roadmap.md) is the build order for what is planned.
+- [Roadmap](docs/specs/roadmap.md) - planned work in build order
 
 ## Status
 
