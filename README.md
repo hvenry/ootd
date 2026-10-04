@@ -2,13 +2,14 @@
 
 A self-hosted wardrobe app where every garment is photographed on a marker rig, cut out, and measured to the millimetre.
 
-<!-- TODO: screenshot of the closet grid and the measure screen -->
+![The closet grid on desktop, and the measure screen on a phone with six pins on a pair of trousers](docs/images/closet-and-measure.png)
 
 ## Features
 
-* Capture garments with a grid and automatically have measurments, cutouts and a beautiful view of your items.
-* OOTD stores a number you can subtract: each photo is solved through ArUco markers into a homography, so pins placed on a garment become integer millimetres.
-- Fit is arithmetic against your body and brand charts instead of a guess.
+- Photograph a garment on a marker rig and get a clean cutout in the closet grid.
+- Place a few pins and every dimension is stored in integer millimetres.
+- Stores a number you can subtract, so fit can be arithmetic instead of a guess.
+- Self-hosted: one Docker Compose stack, CUDA cutouts on a homelab GPU.
 
 ## Quick start
 
@@ -29,8 +30,3 @@ Full setup, dev mode and backups: [docs/setup.md](docs/setup.md).
 - [Measure](docs/measure.md) - pins, templates and the measure screen
 - [Model licensing](docs/model-licensing.md) - why only commercially licensed models are used
 - [Roadmap](docs/specs/roadmap.md) - planned work in build order
-
-## Status
-
-Active, single user, run on a homelab over the LAN or Tailscale.
-Capture, cutout and measuring for clothes work; fit, outfits and the wear log are planned.
